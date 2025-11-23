@@ -5,6 +5,7 @@ import AboutUs from './pages/AboutUs';
 import Contact from './pages/Contact';
 import Login from './auth/Login';
 import SignUp from './auth/SignUp';
+import VerifyEmail from './auth/VerifyEmail';
 import ForgotPassword from './auth/ForgotPassword';
 import ResetPassword from './auth/ResetPassword';
 import CustomerDashboard from './customer/CustomerDashboard';
@@ -19,8 +20,10 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/verify/:userId/:token" element={<VerifyEmail />} />
+        <Route path="/verify" element={<VerifyEmail />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/dashboard" element={<CustomerDashboard />} />
       </Routes>
     </Router>

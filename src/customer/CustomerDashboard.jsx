@@ -4,29 +4,27 @@ import {
   LogOut, Bell, Settings, CreditCard, MapPin, Clock, Star,
   Plus, Minus, Trash2
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState('products');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Cart State
   const [cartItems, setCartItems] = useState([
-    { id: 1, name: 'Elegant Silk Hijab', price: 125000, quantity: 2, image: 'https://images.unsplash.com/photo-1583391265928-510c93610c0e?w=200&q=80', size: 'M' },
-    { id: 2, name: 'Modern Tunic Dress', price: 285000, quantity: 1, image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=200&q=80', size: 'L' }
+    { id: 1, name: 'Elegant Silk Hijab', price: 125000, quantity: 2, image: '', size: 'M' },
+    { id: 2, name: 'Modern Tunic Dress', price: 285000, quantity: 1, image: '', size: 'L' }
   ]);
 
-  // Wishlist State
-  const [wishlist, setWishlist] = useState([1, 3, 5]); // ID produk yang di-wishlist
+  const [wishlist, setWishlist] = useState([1, 3, 5]); 
 
-  // Products Data
   const [products] = useState([
-    { id: 1, name: 'Elegant Silk Hijab', price: 125000, image: 'https://images.unsplash.com/photo-1583391265928-510c93610c0e?w=400&q=80', category: 'Hijabs', rating: 4.8, stock: 15 },
-    { id: 2, name: 'Modern Tunic Dress', price: 285000, image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&q=80', category: 'Dresses', rating: 4.9, stock: 8 },
-    { id: 3, name: 'Premium Cotton Hijab', price: 95000, image: 'https://images.unsplash.com/photo-1601924357840-7e5509f93149?w=400&q=80', category: 'Hijabs', rating: 4.7, stock: 20 },
-    { id: 4, name: 'Flowing Abaya', price: 345000, image: 'https://images.unsplash.com/photo-1583391265899-9aa9d6620a1f?w=400&q=80', category: 'Abayas', rating: 4.9, stock: 5 },
-    { id: 5, name: 'Chiffon Hijab Set', price: 150000, image: 'https://images.unsplash.com/photo-1583391265928-510c93610c0e?w=400&q=80', category: 'Hijabs', rating: 4.6, stock: 12 },
-    { id: 6, name: 'Casual Tunic', price: 195000, image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&q=80', category: 'Tunics', rating: 4.8, stock: 18 }
+    { id: 1, name: '', price: 125000, image: '', category: 'Hijabs', rating: 4.8, stock: 15 },
+    { id: 2, name: '', price: 285000, image: '', category: 'Dresses', rating: 4.9, stock: 8 },
+    { id: 3, name: '', price: 95000, image: '', category: 'Hijabs', rating: 4.7, stock: 20 },
+    { id: 4, name: '', price: 345000, image: '', category: 'Abayas', rating: 4.9, stock: 5 },
+    { id: 5, name: '', price: 150000, image: '', category: 'Hijabs', rating: 4.6, stock: 12 },
+    { id: 6, name: '', price: 195000, image: '', category: 'Tunics', rating: 4.8, stock: 18 }
   ]);
 
   const [orders] = useState([
@@ -35,7 +33,6 @@ function CustomerDashboard() {
     { id: 'ORD-003', date: '2024-11-05', status: 'Processing', total: 445000, items: 2 }
   ]);
 
-  // Fungsi Cart
   const addToCart = (product, selectedSize = 'M') => {
     setCartItems(prev => {
       const existing = prev.find(item => item.id === product.id && item.size === selectedSize);
@@ -66,7 +63,6 @@ function CustomerDashboard() {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-  // Fungsi Wishlist
   const toggleWishlist = (productId) => {
     setWishlist(prev => 
       prev.includes(productId)
@@ -90,7 +86,6 @@ function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-[#fffbf8]">
-      {/* Top Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -101,12 +96,27 @@ function CustomerDashboard() {
               >
                 {isSidebarOpen ? <X className="w-6 h-6 text-[#cb5094]" /> : <Menu className="w-6 h-6 text-[#cb5094]" />}
               </button>
-              <a href="/" className="flex items-center space-x-2">
-                <div className="w-10 h-10 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center">
-                  <span className="text-xl font-serif text-white italic font-bold">MS</span>
+
+              <Link to="/" className="flex items-center space-x-3 group">
+                <div className="relative w-12 h-12 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg group-hover:shadow-2xl transition-all duration-300 group-hover:scale-110 overflow-hidden">
+                  <img
+                    src="/logo.png"
+                    alt="Medina Stuff Logo"
+                    className="w-8 h-8 object-contain relative z-10"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextElementSibling.style.display = 'block';
+                    }}
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center text-2xl font-serif text-white italic font-bold z-10 hidden">
+                    MS
+                  </span>
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#e570b3] to-[#cb5094] opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                 </div>
-                <span className="hidden sm:block text-base text-gray-800 font-medium italic">Medina Stuff</span>
-              </a>
+                <span className="hidden sm:block text-base text-gray-600 font-medium italic tracking-wide">
+                  Medina Stuff
+                </span>
+              </Link>
             </div>
 
             <div className="hidden md:flex flex-1 max-w-md mx-8">
@@ -145,7 +155,7 @@ function CustomerDashboard() {
                 <div className="w-8 h-8 bg-[#cb5094] rounded-full flex items-center justify-center">
                   <User className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-sm font-medium text-gray-700">Fatimah</span>
+                <span className="text-sm font-medium text-gray-700">Cinta</span>
               </div>
             </div>
           </div>
@@ -153,7 +163,6 @@ function CustomerDashboard() {
       </nav>
 
       <div className="flex pt-16">
-        {/* Sidebar */}
         <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 lg:translate-x-0 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } pt-16 lg:pt-0`}>
@@ -198,14 +207,11 @@ function CustomerDashboard() {
           </div>
         </aside>
 
-        {/* Overlay Mobile */}
         {isSidebarOpen && (
           <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>
         )}
 
-        {/* Main Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-          {/* Products Tab */}
           {activeTab === 'products' && (
             <div>
               <div className="mb-6">
@@ -266,10 +272,6 @@ function CustomerDashboard() {
             </div>
           )}
 
-          {/* Cart, Orders, Wishlist, Profile, Settings tetap sama seperti sebelumnya */}
-          {/* (Aku sisipkan hanya yang penting di sini, sisanya sama persis) */}
-
-          {/* Cart Tab - sama seperti sebelumnya */}
           {activeTab === 'cart' && (
             <div>
               <div className="mb-6">
@@ -335,9 +337,6 @@ function CustomerDashboard() {
               )}
             </div>
           )}
-
-          {/* Tab Orders, Wishlist, Profile, Settings tetap sama seperti kode asli kamu */}
-          {/* (Tidak ada perubahan signifikan, jadi aku skip di sini agar tidak terlalu panjang) */}
         </main>
       </div>
     </div>
