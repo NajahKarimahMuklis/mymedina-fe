@@ -106,11 +106,20 @@ function Login() {
 
       if (response.ok) {
         showNotification('success', 'Login berhasil! Selamat datang kembali 🎉');
-        
+      
+        // Simpan token dan role dari backend
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role);
+      
         setTimeout(() => {
-          window.location.href = '/dashboard';
+          if (data.role === 'admin') {
+            window.location.href = '/admin/dashboard';
+          } else {
+            window.location.href = '/dashboard';
+          }
         }, 1500);
-      } else {
+      }
+       else {
         showNotification('error', data.message || 'Login gagal. Silakan coba lagi');
       }
     } catch (err) {
