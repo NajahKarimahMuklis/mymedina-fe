@@ -23,9 +23,7 @@ const Category = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [parentFilter, setParentFilter] = useState("all");
 
-  // ============================
   // FETCH CATEGORIES
-  // ============================
   const fetchCategories = async () => {
     try {
       setLoading(true);
@@ -57,9 +55,7 @@ const Category = () => {
     fetchCategories();
   }, []);
 
-  // ============================
   // PARENT CATEGORIES
-  // ============================
   const parentCategories = useMemo(() => {
     const parents = categories.filter((c) => c.parent === null);
     const unique = [];
@@ -73,9 +69,7 @@ const Category = () => {
     return unique;
   }, [categories]);
 
-  // ============================
   // FILTER & SEARCH
-  // ============================
   const filteredCategories = categories.filter((cat) => {
     const matchesSearch = cat.nama
       .toLowerCase()
@@ -91,9 +85,7 @@ const Category = () => {
     return matchesSearch && matchesParent;
   });
 
-  // ============================
   // MODAL HANDLERS
-  // ============================
   const openAdd = () => {
     setEditData(null);
     setModalOpen(true);
@@ -113,17 +105,23 @@ const Category = () => {
     fetchCategories();
   };
 
-  // ============================
-  // DELETE
-  // ============================
+  // DELETE — SUDAH AMAN + SUPPORT accessToken
   const deleteCategory = async () => {
     try {
+      const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+      if (!token) {
+        alert("Sesi habis! Silakan login ulang.");
+        window.location.href = "/login";
+        return;
+      }
+
       const res = await fetch(
         `http://localhost:5000/api/categories/${deleteConfirm}`,
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -132,12 +130,14 @@ const Category = () => {
         setDeleteConfirm(null);
         fetchCategories();
       } else {
-        let errText = "Gagal menghapus kategori.";
-        try {
-          const errJson = await res.json();
-          if (errJson?.message) errText = errJson.message;
-        } catch {}
-        alert(errText);
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          alert("Token expired. Redirecting to login...");
+          localStorage.clear();
+          window.location.href = "/login";
+        } else {
+          alert(err.message || "Gagal menghapus kategori.");
+        }
       }
     } catch (error) {
       console.error("Delete error:", error);
@@ -162,7 +162,6 @@ const Category = () => {
         {/* TOOLBAR */}
         <div className="bg-white rounded-3xl shadow-xl p-6 mb-6 border border-gray-100">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            {/* SEARCH */}
             <div className="relative flex-1 w-full md:w-auto">
               <Search
                 className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -177,9 +176,7 @@ const Category = () => {
               />
             </div>
 
-            {/* ACTIONS */}
             <div className="flex gap-3">
-              {/* FILTER BUTTON */}
               <button
                 onClick={() => setFilterOpen(!filterOpen)}
                 className={`flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold transition-all shadow-md hover:shadow-lg ${
@@ -192,7 +189,6 @@ const Category = () => {
                 <span>Filter</span>
               </button>
 
-              {/* ADD BUTTON */}
               <button
                 onClick={openAdd}
                 className="flex items-center gap-2 px-6 py-3.5 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
@@ -203,14 +199,12 @@ const Category = () => {
             </div>
           </div>
 
-          {/* FILTER PANEL */}
           {filterOpen && (
             <div className="mt-6 pt-6 border-t border-gray-200">
               {categories.length === 0 ? (
                 <p className="text-gray-500 italic text-center">No categories to filter</p>
               ) : (
                 <div className="flex flex-wrap gap-3">
-                  {/* ALL */}
                   <button
                     onClick={() => setParentFilter("all")}
                     className={`px-5 py-2.5 rounded-full font-semibold transition-all ${
@@ -222,7 +216,6 @@ const Category = () => {
                     All Categories
                   </button>
 
-                  {/* NO PARENT */}
                   <button
                     onClick={() => setParentFilter("no-parent")}
                     className={`px-5 py-2.5 rounded-full font-semibold transition-all ${
@@ -234,7 +227,6 @@ const Category = () => {
                     Root Categories
                   </button>
 
-                  {/* Parent categories */}
                   {parentCategories.map((pc) => (
                     <button
                       key={pc.id}
@@ -254,19 +246,19 @@ const Category = () => {
           )}
         </div>
 
-        {/* TABLE */}
+        {/* TABLE — SUDAH DIPERBAIKI SEMUA TAGNYA */}
         <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white">
                 <tr>
                   <th className="p-5 text-left font-semibold text-base">Category Name</th>
-                  <th className="p-5 text-left font-semibold text-base">Description</th>
+                  <th className="p-5 text-left font-semibold text-base">Slug</th>
+                  <th className="p-5 text-left font-semibold text-base">Parent</th>
                   <th className="p-5 text-left font-semibold text-base">Status</th>
                   <th className="p-5 text-center font-semibold text-base">Actions</th>
                 </tr>
               </thead>
-
               <tbody>
                 {loading ? (
                   <tr>
@@ -359,7 +351,7 @@ const Category = () => {
           </div>
         </div>
 
-        {/* ADD/EDIT MODAL */}
+        {/* MODAL */}
         <AddCategory
           isOpen={modalOpen}
           onClose={closeModal}
@@ -371,18 +363,16 @@ const Category = () => {
         {/* DELETE CONFIRM */}
         {deleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 transform transition-all">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8">
               <div className="flex items-center gap-4 mb-6">
                 <div className="p-4 bg-red-100 rounded-2xl">
                   <Trash2 className="text-red-600" size={28} />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-800">Delete Category?</h3>
               </div>
-
               <p className="text-gray-600 mb-8 text-base leading-relaxed">
                 Are you sure you want to delete this category? This action cannot be undone and may affect related products.
               </p>
-
               <div className="flex gap-4">
                 <button
                   onClick={() => setDeleteConfirm(null)}
