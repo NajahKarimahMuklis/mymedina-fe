@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { CheckCircle, XCircle, Loader2, ArrowRight, Home, Mail } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, ArrowRight, Menu, X, Mail } from 'lucide-react';
 
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);
@@ -15,21 +15,21 @@ function Notification({ type, message, onClose }) {
   };
 
   const configs = {
-    success: { icon: CheckCircle, bgColor: 'from-green-400 to-emerald-500', borderColor: 'border-green-500' },
-    error: { icon: XCircle, bgColor: 'from-red-400 to-rose-500', borderColor: 'border-red-500' },
+    success: { icon: CheckCircle, bgColor: 'from-green-400 to-emerald-500' },
+    error: { icon: XCircle, bgColor: 'from-red-400 to-rose-500' },
   };
 
   const config = configs[type] || configs.success;
   const Icon = config.icon;
 
   return (
-    <div className={`fixed top-24 right-4 z-[100] transition-all duration-300 ${isExiting ? 'translate-x-[120%] opacity-0' : 'translate-x-0 opacity-100'}`}>
-      <div className={`bg-gradient-to-r ${config.bgColor} text-white rounded-2xl shadow-2xl p-4 min-w-[320px] max-w-md border-2 ${config.borderColor}`}>
+    <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ${isExiting ? 'translate-y-[-150%] opacity-0' : 'translate-y-0 opacity-100'}`}>
+      <div className={`bg-gradient-to-r ${config.bgColor} text-white rounded-2xl shadow-2xl p-4 min-w-[320px] max-w-md border-2 border-white/30`}>
         <div className="flex items-start space-x-3">
-          <Icon className="w-6 h-6 mt-0.5 flex-shrink-0" />
-          <p className="flex-1 text-sm font-medium leading-relaxed">{message}</p>
-          <button onClick={handleClose} className="hover:bg-white/20 rounded-full p-1 transition">
-            <XCircle className="w-5 h-5" />
+          <Icon className="w-6 h-6 flex-shrink-0 mt-0.5" />
+          <p className="text-sm font-medium flex-1">{message}</p>
+          <button onClick={handleClose} className="hover:bg-white/20 rounded-full p-1 transition-all">
+            <X className="w-5 h-5" />
           </button>
         </div>
         <div className="mt-3 h-1 bg-white/30 rounded-full overflow-hidden">
@@ -41,7 +41,6 @@ function Notification({ type, message, onClose }) {
 }
 
 export default function VerifyEmail() {
-
   const userId = new URLSearchParams(window.location.search).get('userId') || 'demo-user-id';
   const userEmail = new URLSearchParams(window.location.search).get('email') || 'user@example.com';
   
@@ -49,7 +48,7 @@ export default function VerifyEmail() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [isResending, setIsResending] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -78,6 +77,8 @@ export default function VerifyEmail() {
   const handleKeyDown = (index, e) => {
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'Enter') {
+      handleVerify();
     }
   };
 
@@ -112,9 +113,7 @@ export default function VerifyEmail() {
         `http://localhost:5000/api/auth/verifikasi-email/${userId}/${verificationCode}`,
         { 
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         }
       );
 
@@ -164,57 +163,8 @@ export default function VerifyEmail() {
     }
   };
 
-  const handleResend = async () => {
-    if (!userId || userId === 'demo-user-id') {
-      showNotification('error', 'User ID tidak valid. Silakan daftar ulang');
-      return;
-    }
-
-    setIsResending(true);
-    
-    try {
-      console.log('Resending verification to userId:', userId);
-      
-      const response = await fetch('http://localhost:5000/api/auth/resend-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
-
-      console.log('Resend response status:', response.status);
-
-      let data;
-      try {
-        data = await response.json();
-        console.log('Resend response data:', data);
-      } catch (parseError) {
-        console.error('Failed to parse resend response:', parseError);
-        throw new Error('Invalid response from server');
-      }
-
-      if (response.ok) {
-        showNotification('success', 'Kode verifikasi baru telah dikirim ke email Anda');
-        setCode(['', '', '', '', '', '']);
-        inputRefs.current[0]?.focus();
-      } else {
-        const errorMessage = data.message || 'Gagal mengirim ulang kode verifikasi';
-        showNotification('error', errorMessage);
-      }
-    } catch (err) {
-      console.error('Resend error:', err);
-      
-      if (err.message === 'Failed to fetch') {
-        showNotification('error', 'Gagal terhubung ke server. Pastikan backend berjalan');
-      } else {
-        showNotification('error', 'Terjadi kesalahan: ' + err.message);
-      }
-    } finally {
-      setIsResending(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[#fffbf8] relative overflow-hidden flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-pink-200 via-pink-100 to-pink-50 relative overflow-hidden flex items-center justify-center">
       {notification && (
         <Notification
           key={notification.id}
@@ -226,18 +176,25 @@ export default function VerifyEmail() {
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
-          className="absolute left-0 bottom-0 w-[500px] h-[500px] bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-tr-full transition-all duration-1000"
-          style={{ opacity: isLoaded ? 0.95 : 0, transform: isLoaded ? 'scale(1)' : 'scale(0.8)' }}
+          className="absolute -left-40 top-0 w-[600px] h-[600px] bg-pink-300/40 rounded-full blur-3xl transition-all duration-1000"
+          style={{
+            opacity: isLoaded ? 1 : 0,
+            transform: isLoaded ? 'scale(1)' : 'scale(0.8)'
+          }}
         ></div>
+        
         <div 
-          className="absolute right-0 top-0 w-[400px] h-[400px] bg-gradient-to-bl from-[#cb5094] to-[#e570b3] rounded-bl-full transition-all duration-1000 delay-200"
-          style={{ opacity: isLoaded ? 0.85 : 0, transform: isLoaded ? 'scale(1)' : 'scale(0.8)' }}
+          className="absolute -right-40 bottom-0 w-[600px] h-[600px] bg-pink-200/40 rounded-full blur-3xl transition-all duration-1000 delay-200"
+          style={{
+            opacity: isLoaded ? 1 : 0,
+            transform: isLoaded ? 'scale(1)' : 'scale(0.8)'
+          }}
         ></div>
-        <div className="absolute top-[20%] left-[15%] w-16 h-16 rounded-full bg-[#cb5094]/20 animate-float"></div>
-        <div className="absolute bottom-[30%] right-[20%] w-12 h-12 rounded-full bg-[#cb5094]/15 animate-float-delayed"></div>
+
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-300/30 rounded-full blur-3xl"></div>
       </div>
 
-      <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-sm shadow-sm">
+      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl shadow-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 sm:h-20">
             <a href="/" className="flex items-center space-x-2 sm:space-x-3 group">
@@ -260,35 +217,53 @@ export default function VerifyEmail() {
               </div>
             </a>
 
-            <div className="flex items-center space-x-4">
-              <a href="/" className="text-[#cb5094] font-bold text-sm tracking-wide hover:underline transition-all flex items-center gap-2">
-                <Home className="w-4 h-4" />
-                <span className="hidden sm:inline">BERANDA</span>
+            <div className="hidden lg:flex items-center space-x-4">
+              <a href="/login" className="bg-[#cb5094] text-white px-6 py-2.5 rounded-full font-semibold text-sm tracking-wide hover:bg-[#b04580] hover:shadow-lg transition-all duration-300">
+                LOGIN
+              </a>
+              <a href="/signup" className="text-[#cb5094] font-semibold text-sm tracking-wide hover:underline transition-all">
+                SIGN UP
+              </a>
+            </div>
+
+            <button 
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="lg:hidden p-2 hover:bg-pink-50 rounded-lg transition-all duration-300"
+            >
+              {isMenuOpen ? <X className="w-6 h-6 text-[#cb5094]" /> : <Menu className="w-6 h-6 text-[#cb5094]" />}
+            </button>
+          </div>
+
+          <div 
+            className={`lg:hidden overflow-hidden transition-all duration-500 ${
+              isMenuOpen ? 'max-h-64 opacity-100 pb-4' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="space-y-1">
+              <a href="/login" className="block py-3 px-4 text-[#cb5094] font-semibold bg-pink-50 rounded-lg transition-all">
+                LOGIN
+              </a>
+              <a href="/signup" className="block py-3 px-4 text-gray-700 hover:text-[#cb5094] hover:bg-pink-50 rounded-lg font-semibold text-sm transition-all">
+                SIGN UP
               </a>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="relative z-10 w-full max-w-lg px-4 pt-24 sm:pt-28 pb-8">
-        <div 
-          className="bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-3xl shadow-2xl p-6 sm:p-8 lg:p-10 transition-all duration-1000"
-          style={{
-            opacity: isLoaded ? 1 : 0,
-            transform: isLoaded ? 'translateY(0) scale(1)' : 'translateY(30px) scale(0.95)'
-          }}
-        >
+      <div className="relative z-10 w-full max-w-md px-4 pt-24 pb-8">
+        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/60 p-8 sm:p-10 transition-all duration-1000"
+          style={{ opacity: isLoaded ? 1 : 0, transform: isLoaded ? 'translateY(0)' : 'translateY(30px)' }}>
+          
           <div className="text-center mb-8">
-            <div className="mx-auto w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4 shadow-xl">
+            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center mb-4 shadow-xl">
               <Mail className="w-10 h-10 text-white" />
             </div>
-            <h1 className="text-3xl sm:text-4xl font-serif text-white mb-2">
-              Verifikasi Email
-            </h1>
-            <p className="text-white/90 text-sm sm:text-base leading-relaxed px-4">
+            <h1 className="text-4xl sm:text-5xl font-bold text-[#cb5094] mb-2">Verifikasi Email</h1>
+            <p className="text-gray-600 text-sm font-medium mb-1">
               Masukkan kode 6 digit yang telah dikirim ke
             </p>
-            <p className="text-white font-semibold text-sm sm:text-base mt-1">
+            <p className="text-[#cb5094] font-semibold text-sm">
               {userEmail}
             </p>
           </div>
@@ -304,7 +279,7 @@ export default function VerifyEmail() {
                 onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 onPaste={index === 0 ? handlePaste : undefined}
-                className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold bg-white text-[#cb5094] rounded-xl shadow-lg focus:outline-none focus:ring-4 focus:ring-white/50 transition-all duration-300"
+                className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold bg-white border-2 border-gray-100 text-[#cb5094] rounded-2xl shadow-sm focus:outline-none focus:border-[#cb5094] focus:ring-4 focus:ring-pink-100 transition-all duration-300 hover:shadow-md hover:border-pink-200"
                 disabled={isVerifying}
               />
             ))}
@@ -313,7 +288,7 @@ export default function VerifyEmail() {
           <button
             onClick={handleVerify}
             disabled={isVerifying || code.join('').length !== 6}
-            className="w-full bg-[#7a2c5e] hover:bg-[#5d1f46] text-white font-bold py-4 rounded-full text-base sm:text-lg transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+            className="w-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] hover:from-[#b04580] hover:to-[#d460a2] text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98] mb-6"
           >
             {isVerifying ? (
               <span className="flex items-center justify-center">
@@ -328,52 +303,20 @@ export default function VerifyEmail() {
             )}
           </button>
 
-          <div className="text-center">
-            <p className="text-white/80 text-sm mb-2">
-              Tidak menerima kode?
-            </p>
-            <button
-              onClick={handleResend}
-              disabled={isResending}
-              className="text-white font-bold text-sm hover:underline transition-all disabled:opacity-50"
-            >
-              {isResending ? 'Mengirim...' : 'Kirim Ulang Kode'}
-            </button>
-          </div>
-
-          <div className="text-center mt-6 pt-6 border-t border-white/20">
-            <a 
-              href="/login" 
-              className="text-white text-sm hover:underline transition-all flex items-center justify-center gap-2"
-            >
-              Sudah punya akun? Login
-            </a>
-          </div>
+          <p className="text-center text-gray-600 text-sm font-medium">
+            Sudah punya akun? <a href="/login" className="text-[#cb5094] font-bold hover:underline transition-all">Login sekarang</a>
+          </p>
         </div>
       </div>
 
       <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-20px); }
-        }
-        @keyframes float-delayed {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-15px); }
-        }
-        @keyframes progress {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-        .animate-float-delayed {
-          animation: float-delayed 8s ease-in-out infinite;
-          animation-delay: 1s;
-        }
-        .animate-progress {
-          animation: progress 4s linear forwards;
+        @keyframes progress { from { width: 100% } to { width: 0% } }
+        .animate-progress { animation: progress 4s linear forwards; }
+        
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+        
+        * {
+          font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
       `}</style>
     </div>

@@ -59,7 +59,7 @@ function Login() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
 
     if (!email || !password) {
       showNotification('error', 'Email dan password wajib diisi!');
@@ -115,6 +115,12 @@ function Login() {
       showNotification('error', 'Gagal terhubung ke server. Pastikan backend jalan!');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit(e);
     }
   };
 
@@ -223,6 +229,7 @@ function Login() {
                   placeholder="Alamat Email" 
                   value={email} 
                   onChange={e => setEmail(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
                 />
               </div>
@@ -236,6 +243,7 @@ function Login() {
                   placeholder="Kata Sandi" 
                   value={password} 
                   onChange={e => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
                 />
                 <button 
