@@ -63,7 +63,7 @@ function SignUp() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
 
     if (!name || !email || !phone || !password || !confirmPassword) {
       showNotification('error', 'Semua kolom wajib diisi!');
@@ -156,6 +156,12 @@ function SignUp() {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit(e);
     }
   };
 
@@ -254,6 +260,7 @@ function SignUp() {
                   placeholder="Nama Lengkap" 
                   value={name} 
                   onChange={(e) => setName(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
                 />
               </div>
@@ -267,6 +274,7 @@ function SignUp() {
                   placeholder="Alamat Email" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
                 />
               </div>
@@ -280,6 +288,7 @@ function SignUp() {
                   placeholder="Nomor Telepon" 
                   value={phone} 
                   onChange={(e) => setPhone(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
                 />
               </div>
@@ -293,6 +302,7 @@ function SignUp() {
                   placeholder="Buat Kata Sandi" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
                 />
                 <button 
@@ -313,6 +323,7 @@ function SignUp() {
                   placeholder="Konfirmasi Kata Sandi" 
                   value={confirmPassword} 
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
                 />
                 <button 
