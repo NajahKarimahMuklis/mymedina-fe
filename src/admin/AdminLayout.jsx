@@ -85,11 +85,11 @@ function AdminLayout({ children }) {
   }
 
   const menuItems = [
-    { path: '/admin/products', icon: PackageSearch, label: 'Products' },
-    { path: '/admin/categories', icon: FolderTree, label: 'Categories' },
-    { path: '/admin/orders', icon: ClipboardList, label: 'Orders' },
-    { path: '/admin/transactions', icon: CreditCard, label: 'Transactions' },
-    { path: '/admin/settings', icon: Settings, label: 'Settings' },
+    { path: '/admin/products', icon: PackageSearch, label: 'Produk' },
+    { path: '/admin/categories', icon: FolderTree, label: 'Kategori' },
+    { path: '/admin/orders', icon: ClipboardList, label: 'Pesanan' },
+    { path: '/admin/transactions', icon: CreditCard, label: 'Transaksi' },
+    { path: '/admin/settings', icon: Settings, label: 'Pengaturan' },
   ];
 
   return (
@@ -124,8 +124,8 @@ function AdminLayout({ children }) {
                   </span>
                 </div>
                 <div className="hidden sm:block">
-                  <div className="text-base font-bold text-gray-800">Admin Panel</div>
-                  <div className="text-xs text-gray-500">Medina Stuff</div>
+                  <div className="text-base font-bold text-gray-800">MyMedina</div>
+                  <div className="text-xs text-gray-500">by Medina Stuff</div>
                 </div>
               </a>
             </div>
@@ -137,7 +137,6 @@ function AdminLayout({ children }) {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-gray-800">{adminData.nama}</div>
-                  <div className="text-xs text-[#cb5094] font-medium">Administrator</div>
                 </div>
               </div>
             </div>
@@ -181,7 +180,7 @@ function AdminLayout({ children }) {
                 className="w-full flex items-center space-x-3 px-5 py-4 rounded-2xl text-red-600 hover:bg-red-50 transition-all duration-200 font-medium"
               >
                 <LogOut className="w-5 h-5" />
-                <span>Logout</span>
+                <span>Keluar</span>
               </button>
             </div>
           </div>

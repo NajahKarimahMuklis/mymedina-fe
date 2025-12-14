@@ -1,7 +1,6 @@
-// src/admin/AdminDashboard.jsx
 import { useState, useEffect } from 'react';
 import {
-  Menu, X, PackageSearch, FolderTree, ClipboardList, CreditCard, Settings, LogOut, Plus
+  Menu, X, PackageSearch, FolderTree, ClipboardList, CreditCard, Settings, LogOut, Plus, Eye
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { productAPI, categoryAPI } from '../utils/api';
@@ -18,6 +17,7 @@ export default function AdminDashboard() {
   });
   const [recentProducts, setRecentProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -92,16 +92,15 @@ export default function AdminDashboard() {
   }
 
   const menuItems = [
-    { path: '/admin/products', icon: PackageSearch, label: 'Products' },
-    { path: '/admin/categories', icon: FolderTree, label: 'Categories' },
-    { path: '/admin/orders', icon: ClipboardList, label: 'Orders' },
-    { path: '/admin/transactions', icon: CreditCard, label: 'Transactions' },
-    { path: '/admin/settings', icon: Settings, label: 'Settings' },
+    { path: '/admin/products', icon: PackageSearch, label: 'Produk' },
+    { path: '/admin/categories', icon: FolderTree, label: 'Kategori' },
+    { path: '/admin/orders', icon: ClipboardList, label: 'Pesanan' },
+    { path: '/admin/transactions', icon: CreditCard, label: 'Transaksi' },
+    { path: '/admin/settings', icon: Settings, label: 'Pengaturan' },
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Navbar - SAMA PERSIS DENGAN ADMINLAYOUT */}
       <nav className="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -132,8 +131,8 @@ export default function AdminDashboard() {
                   </span>
                 </div>
                 <div className="hidden sm:block">
-                  <div className="text-base font-bold text-gray-800">Admin Panel</div>
-                  <div className="text-xs text-gray-500">Medina Stuff</div>
+                  <div className="text-base font-bold text-gray-800">MyMedina</div>
+                  <div className="text-xs text-gray-500">by Medina Stuff</div>
                 </div>
               </a>
             </div>
@@ -145,7 +144,6 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-gray-800">{adminData.nama}</div>
-                  <div className="text-xs text-[#cb5094] font-medium">Administrator</div>
                 </div>
               </div>
             </div>
@@ -154,7 +152,6 @@ export default function AdminDashboard() {
       </nav>
 
       <div className="flex pt-16 min-h-screen">
-        {/* Sidebar - SAMA PERSIS DENGAN ADMINLAYOUT */}
         <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white shadow-2xl transform transition-transform duration-300 pt-16 lg:pt-0 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}>
@@ -190,24 +187,21 @@ export default function AdminDashboard() {
                 className="w-full flex items-center space-x-3 px-5 py-4 rounded-2xl text-red-600 hover:bg-red-50 transition-all duration-200 font-medium"
               >
                 <LogOut className="w-5 h-5" />
-                <span>Logout</span>
+                <span>Keluar</span>
               </button>
             </div>
           </div>
         </aside>
 
-        {/* Overlay */}
         {isSidebarOpen && (
           <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
         )}
 
-        {/* Main Content */}
         <main className="flex-1 p-6 lg:p-10">
           <div className="max-w-7xl mx-auto">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Selamat Datang, {adminData.nama.split(' ')[0]}!</h1>
             <p className="text-gray-600 mb-10">Ini ringkasan toko kamu hari ini</p>
 
-            {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {[
                 { label: 'Total Produk', value: stats.totalProducts, icon: PackageSearch },
@@ -225,7 +219,6 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* Recent Products */}
             <div className="bg-white rounded-3xl shadow-xl p-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Produk Terbaru</h2>
@@ -245,8 +238,18 @@ export default function AdminDashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                   {recentProducts.map(p => (
-                    <div key={p.id} className="border rounded-2xl overflow-hidden hover:shadow-lg transition">
-                      <img src={p.gambarUrl} alt={p.nama} className="w-full h-48 object-cover" />
+                    <div key={p.id} className="border rounded-2xl overflow-hidden hover:shadow-lg transition group relative">
+                      <div className="relative">
+                        <img src={p.gambarUrl} alt={p.nama} className="w-full h-48 object-cover" />
+                        <button
+                          onClick={() => setSelectedProduct(p)}
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        >
+                          <div className="bg-white rounded-full p-3">
+                            <Eye className="w-6 h-6 text-[#cb5094]" />
+                          </div>
+                        </button>
+                      </div>
                       <div className="p-4">
                         <h3 className="font-bold text-gray-800 truncate">{p.nama}</h3>
                         <p className="text-[#cb5094] font-bold">
@@ -264,6 +267,89 @@ export default function AdminDashboard() {
           </div>
         </main>
       </div>
+
+      {selectedProduct && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setSelectedProduct(null)}>
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-8 py-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Detail Produk</h2>
+              <button
+                onClick={() => setSelectedProduct(null)}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+              >
+                <X className="w-6 h-6 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="p-8">
+              <div className="grid md:grid-cols-2 gap-8">
+                <div>
+                  <img 
+                    src={selectedProduct.gambarUrl} 
+                    alt={selectedProduct.nama}
+                    className="w-full h-96 object-cover rounded-2xl shadow-lg"
+                  />
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-3xl font-bold text-gray-900 mb-2">{selectedProduct.nama}</h3>
+                    <span className={`inline-block text-sm px-3 py-1 rounded-full ${
+                      selectedProduct.status === 'READY' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {selectedProduct.status}
+                    </span>
+                  </div>
+
+                  <div className="border-t border-b border-gray-200 py-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-600">Harga Dasar:</span>
+                      <span className="text-2xl font-bold text-[#cb5094]">
+                        {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(selectedProduct.hargaDasar)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Stok:</span>
+                      <span className="text-lg font-semibold text-gray-900">{selectedProduct.stok || 0}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">Deskripsi:</h4>
+                    <p className="text-gray-600 leading-relaxed">
+                      {selectedProduct.deskripsi || 'Tidak ada deskripsi'}
+                    </p>
+                  </div>
+
+                  {selectedProduct.kategori && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Kategori:</h4>
+                      <span className="inline-block bg-pink-50 text-[#cb5094] px-4 py-2 rounded-full text-sm font-medium">
+                        {selectedProduct.kategori.nama}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      onClick={() => navigate(`/admin/products/edit/${selectedProduct.id}`)}
+                      className="flex-1 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition"
+                    >
+                      Edit Produk
+                    </button>
+                    <button
+                      onClick={() => setSelectedProduct(null)}
+                      className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
