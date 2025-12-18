@@ -3,8 +3,6 @@ import { Toaster } from 'react-hot-toast';
 
 // Public Pages
 import Home from './pages/Home';
-import AboutUs from './pages/AboutUs';
-import Contact from './pages/Contact';
 
 // Auth Pages
 import Login from './auth/Login';
@@ -36,10 +34,7 @@ function App() {
       <Toaster position="top-center" />
       
       <Routes>
-        {/* PUBLIC ROUTES */}
         <Route path="/" element={<Home />} />
-        <Route path="/aboutus" element={<AboutUs />} />
-        <Route path="/contact" element={<Contact />} />
 
         {/* AUTH ROUTES */}
         <Route path="/login" element={<Login />} />
@@ -64,7 +59,7 @@ function App() {
         {/* Legacy route - redirect to /customer/products */}
         <Route path="/dashboard" element={<Navigate to="/customer/products" replace />} />
 
-        {/* ADMIN ROUTES - Wrapped with AdminLayout */}
+        {/* ADMIN ROUTES */}
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route path="categories" element={<CategoryManagement />} />
