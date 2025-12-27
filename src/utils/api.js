@@ -93,14 +93,43 @@ export const paymentAPI = {
   updateStatus: (id, data) => api.put(`/payments/${id}/status`, data),
 };
 
+// Tambahkan ini ke file api.js yang sudah ada
+
 export const shipmentAPI = {
-  create: (data) => api.post('/shipments', data),
-  trackByOrderId: (orderId) => api.get(`/shipments/order/${orderId}/track`),
-  getById: (id) => api.get(`/shipments/${id}`),
-  updateStatus: (id, data) => api.put(`/shipments/${id}/status`, data),
+  // Search areas (provinces, cities, subdistricts)
+  searchAreas: (query) => 
+    api.get('/shipment/areas', { params: { input: query } }),
+  
+  // Get shipping rates
+  getRates: (data) => 
+    api.post('/shipment/rates', data),
+  
+  // Create shipment order (after payment)
+  createOrder: (data) => 
+    api.post('/shipment/order', data),
+  
+  // Track shipment
+  trackShipment: (waybill, courier) => 
+    api.get(`/shipment/tracking/${waybill}/${courier}`),
+  
+  // Get all shipments (admin)
+  getAllShipments: () => 
+    api.get('/shipments'),
+  
+  // Get shipment by order ID
+  getByOrderId: (orderId) => 
+    api.get(`/shipments/order/${orderId}/track`),
+  
+  // Update shipment status (admin)
+  updateStatus: (id, data) => 
+    api.put(`/shipments/${id}/status`, data),
+  
+  // Sync tracking from Biteship (admin)
+  syncTracking: (id) => 
+    api.get(`/shipments/${id}/tracking`),
 };
 
-// ✅ NEW: Dashboard & Reports API
+// Dashboard & Reports API
 export const dashboardAPI = {
   // Dashboard Summary
   getSummary: (params = {}) => api.get('/admin/dashboard/summary', { params }),

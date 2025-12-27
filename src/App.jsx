@@ -12,6 +12,7 @@ import ForgotPassword from './auth/ForgotPassword';
 import ResetPassword from './auth/ResetPassword';
 
 // Customer Pages
+import CustomerLayout from './customer/CustomerLayout'; // 👈 TAMBAH INI
 import CustomerDashboard from './customer/CustomerDashboard';
 import CustomerProducts from './customer/CustomerProducts';
 import CustomerCart from './customer/CustomerCart';
@@ -51,16 +52,18 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* CUSTOMER ROUTES */}
+        {/* CUSTOMER ROUTES - UPDATED 👇 */}
         <Route path="/customer" element={<CustomerDashboard />}>
-          <Route index element={<Navigate to="products" replace />} />
-          <Route path="products" element={<CustomerProducts />} />
-          <Route path="cart" element={<CustomerCart />} />
-          <Route path="orders" element={<CustomerOrders />} />
-          <Route path="checkout" element={<CustomerCheckout />} />
-          <Route path="payment/:orderId" element={<CustomerPayment />} />
-          <Route path="wishlist" element={<CustomerWishlist />} />
-          <Route path="profile" element={<CustomerProfile />} />
+          <Route element={<CustomerLayout />}> {/* 👈 WRAP DENGAN LAYOUT */}
+            <Route index element={<Navigate to="products" replace />} />
+            <Route path="products" element={<CustomerProducts />} />
+            <Route path="cart" element={<CustomerCart />} />
+            <Route path="orders" element={<CustomerOrders />} />
+            <Route path="checkout" element={<CustomerCheckout />} />
+            <Route path="payment/:orderId" element={<CustomerPayment />} />
+            <Route path="wishlist" element={<CustomerWishlist />} />
+            <Route path="profile" element={<CustomerProfile />} />
+          </Route>
         </Route>
 
         <Route path="/dashboard" element={<Navigate to="/customer/products" replace />} />

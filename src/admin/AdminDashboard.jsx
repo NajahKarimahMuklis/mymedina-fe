@@ -39,18 +39,31 @@ export default function AdminDashboard() {
           role: 'ADMIN'
         });
 
-        // Fetch products, categories, dan orders
-        const [prodRes, catRes, ordersRes] = await Promise.all([
-          productAPI.getAll({ limit: 10, sort: 'createdAt:desc' }),
-          categoryAPI.getAll(true),
-          api.get('/orders/admin/all', { params: { limit: 1000 } })
-        ]);
+        // Ambil semua order
+        const ordersRes = await api.get('/orders/admin/all', { params: { limit: 1000 } });
+        const ordersArray = ordersRes.data.data || ordersRes.data.orders || [];
 
-        const productsArray = prodRes.data?.data || prodRes.data || [];
-        const categoriesArray = Array.isArray(catRes) ? catRes : catRes.data || [];
-        const ordersArray = ordersRes.data?.data || ordersRes.data?.orders || [];
+        // Ambil semua payment untuk hitung revenue akurat
+        const paymentsRes = await Promise.all(
+          ordersArray.map(async (order) => {
+            try {
+              const payRes = await api.get(`/payments/order/${order.id}`);
+              return payRes.data.payments || [];
+            } catch {
+              return [];
+            }
+          })
+        );
 
-        // Hitung stats dari orders
+        const allPayments = paymentsRes.flat();
+        const successfulPayments = allPayments.filter(p => 
+          ['SETTLEMENT', 'SETTLED', 'CAPTURE'].includes(p.status?.toUpperCase())
+        );
+
+        // Hitung revenue dari payment yang berhasil
+        const monthlyRevenue = successfulPayments.reduce((sum, p) => sum + Number(p.jumlah || 0), 0);
+
+        // Hitung stats lain dari orders
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -60,17 +73,18 @@ export default function AdminDashboard() {
           return orderDate >= today;
         }).length;
 
-        const monthlyRevenue = ordersArray
-          .filter(order => {
-            const orderDate = new Date(order.dibuatPada || order.createdAt);
-            const paidStatus = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'].includes(order.status);
-            return orderDate >= thisMonthStart && paidStatus;
-          })
-          .reduce((sum, order) => sum + Number(order.total || 0), 0);
-
         const pendingOrdersCount = ordersArray.filter(order => 
-          order.status === 'PAID' || order.status === 'PROCESSING'
+          order.status === 'PENDING_PAYMENT' || order.status === 'PAID' || order.status === 'PROCESSING'
         ).length;
+
+        // Produk & kategori tetap
+        const [prodRes, catRes] = await Promise.all([
+          productAPI.getAll({ limit: 10, sort: 'createdAt:desc' }),
+          categoryAPI.getAll(true)
+        ]);
+
+        const productsArray = prodRes.data?.data || prodRes.data || [];
+        const categoriesArray = Array.isArray(catRes) ? catRes : catRes.data || [];
 
         setRecentProducts(productsArray);
         setStats({
@@ -78,7 +92,7 @@ export default function AdminDashboard() {
           totalCategories: categoriesArray.length,
           todayOrders: todayOrdersCount,
           pendingOrders: pendingOrdersCount,
-          monthlyRevenue: monthlyRevenue
+          monthlyRevenue: monthlyRevenue // ← Sekarang akurat!
         });
 
       } catch (err) {

@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, Clock, CheckCircle, Truck, XCircle, Eye, MapPin, User, X, 
-  Search, Filter, RefreshCw, ChevronDown, DollarSign, Menu,
+  Search, Filter, RefreshCw, ChevronDown, Menu,
   ShoppingBag
 } from 'lucide-react';
 import api from '../utils/api';
 import { formatPrice } from '../utils/formatPrice';
+import toast from 'react-hot-toast';
 
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);
@@ -88,8 +89,6 @@ function AdminOrders() {
       
       const ordersData = response.data.data || response.data.orders || [];
       
-      console.log('📊 Raw Orders Data dari BE:', ordersData); // ← CEK DI CONSOLE APAKAH ADA total/subtotal/ongkosKirim
-      
       // Enrich dengan shipment untuk tombol update
       const enrichedOrders = await Promise.all(ordersData.map(async (order) => {
         try {
@@ -136,15 +135,6 @@ function AdminOrders() {
     });
   };
 
-  // Helper untuk hitung total order (fallback aman)
-  const getOrderTotal = (order) => {
-    const total = Number(order.total || 0);
-    if (total > 0) return total;
-    const subtotal = Number(order.subtotal || 0);
-    const ongkir = Number(order.ongkosKirim || order.ongkir || 0);
-    return subtotal + ongkir;
-  };
-
   const filteredOrders = orders.filter(order => {
     if (filterStatus && order.status !== filterStatus) return false;
     if (searchQuery) {
@@ -162,11 +152,6 @@ function AdminOrders() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  // ✅ TOTAL PENDAPATAN DIPERBAIKI: Pakai getOrderTotal()
-  const totalRevenue = filteredOrders
-    .filter(o => ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'].includes(o.status))
-    .reduce((sum, o) => sum + getOrderTotal(o), 0);
 
   const handleViewDetail = (order) => {
     setSelectedOrder(order);
@@ -251,20 +236,9 @@ function AdminOrders() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-5 shadow-md border-l-4 border-[#cb5094] hover:shadow-xl transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Total Pendapatan</p>
-                <p className="text-3xl lg:text-4xl font-bold text-gray-800 mt-2">{formatPrice(totalRevenue)}</p>
-              </div>
-              <div className="w-12 h-12 lg:w-14 lg:h-14 bg-pink-50 rounded-xl flex items-center justify-center">
-                <DollarSign className="w-6 h-6 lg:w-7 lg:h-7 text-[#cb5094]" />
-              </div>
-            </div>
-          </div>
-
+        {/* Stats Cards - TOTAL PENDAPATAN DIHAPUS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Total Pesanan */}
           <div className="bg-white rounded-2xl p-5 shadow-md border-l-4 border-purple-500 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -277,6 +251,7 @@ function AdminOrders() {
             </div>
           </div>
 
+          {/* Menunggu Proses */}
           <div className="bg-white rounded-2xl p-5 shadow-md border-l-4 border-yellow-500 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>

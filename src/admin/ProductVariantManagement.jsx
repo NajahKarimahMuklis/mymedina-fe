@@ -1,67 +1,68 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Plus, Edit2, Trash2, ArrowLeft, Package, X, Check, ChevronRight
+import { 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  ArrowLeft, 
+  Package, 
+  X, 
+  Check, 
+  ChevronRight, 
+  AlertCircle 
 } from 'lucide-react';
 import { productAPI, variantAPI } from '../utils/api';
 import { formatPrice } from '../utils/formatPrice';
 
 function ProductVariantManagement() {
+  // ===================================================================
+  // STATE UTAMA
+  // ===================================================================
   const { productId } = useParams();
   const navigate = useNavigate();
-  
+
   const [product, setProduct] = useState(null);
   const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingVariant, setEditingVariant] = useState(null);
-  
+
+  // Bulk create step
   const [variantStep, setVariantStep] = useState('colors');
   const [colors, setColors] = useState([]);
   const [sizes, setSizes] = useState([]);
   const [variantsToCreate, setVariantsToCreate] = useState([]);
   const [newColor, setNewColor] = useState('');
   const [newSize, setNewSize] = useState('');
-  const [colorImages, setColorImages] = useState({});
-  const [selectingImageForColor, setSelectingImageForColor] = useState(null);
-  
+
+  // Image picker untuk single & bulk
+  const [selectedGambar, setSelectedGambar] = useState('');
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [currentColorForPicker, setCurrentColorForPicker] = useState('');
+
+  // NEW: State untuk konfirmasi sync foto
+  const [showSyncConfirmation, setShowSyncConfirmation] = useState(false);
+  const [pendingImageUpdate, setPendingImageUpdate] = useState(null);
+
+  // Form data untuk single edit
   const [formData, setFormData] = useState({
     sku: '',
     ukuran: '',
     warna: '',
     stok: '',
     hargaOverride: '',
-    aktif: true
+    aktif: true,
+    gambar: ''
   });
 
-  // Load colorImages dari localStorage
-  useEffect(() => {
-    if (productId) {
-      const saved = localStorage.getItem(`colorImages-${productId}`);
-      if (saved) {
-        try {
-          setColorImages(JSON.parse(saved));
-        } catch (e) {
-          console.error('Failed to parse colorImages', e);
-        }
-      }
-      fetchProduct();
-      fetchVariants();
-    }
-  }, [productId]);
-
-  // Simpan colorImages ke localStorage
-  useEffect(() => {
-    if (productId && Object.keys(colorImages).length > 0) {
-      localStorage.setItem(`colorImages-${productId}`, JSON.stringify(colorImages));
-    }
-  }, [colorImages, productId]);
-
+  // ===================================================================
+  // FETCH DATA
+  // ===================================================================
   const fetchProduct = async () => {
     try {
       const response = await productAPI.getById(productId);
-      let productData = response.data?.data || response.data || response;
-      
+      const productData = response.data?.data || response.data || response;
+
       if (productData && productData.slug) {
         setProduct(productData);
       } else {
@@ -79,7 +80,7 @@ function ProductVariantManagement() {
     try {
       setLoading(true);
       const response = await variantAPI.getByProductId(productId, true);
-      
+
       let variantsData = [];
       if (Array.isArray(response.data)) {
         variantsData = response.data;
@@ -88,91 +89,116 @@ function ProductVariantManagement() {
       } else if (Array.isArray(response)) {
         variantsData = response;
       }
-      
+
       setVariants(variantsData);
     } catch (error) {
       console.error('Error fetching variants:', error);
       setVariants([]);
       if (error.response?.status !== 404) {
-        alert('Gagal memuat varian: ' + (error.message || 'Unknown error'));
+        alert('Gagal memuat varian');
       }
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (productId) {
+      fetchProduct();
+      fetchVariants();
+    }
+  }, [productId]);
+
+  // ===================================================================
+  // SKU GENERATOR
+  // ===================================================================
   const generateSKU = (size, color) => {
     if (!product || !product.slug || !size || !color) return '';
-    
+
     const baseSlug = product.slug.toUpperCase().replace(/-/g, '');
     const sizeCode = size.toUpperCase().replace(/\s+/g, '');
     const colorCode = color.toUpperCase().replace(/\s+/g, '');
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-    
+
     return `${baseSlug}-${sizeCode}-${colorCode}-${timestamp}-${random}`;
   };
 
+  // ===================================================================
+  // BULK CREATE - WARNA
+  // ===================================================================
   const handleAddColor = () => {
     if (newColor.trim() && !colors.includes(newColor.trim())) {
-      setColors([...colors, newColor.trim()]);
+      setColors(prev => [...prev, newColor.trim()]);
       setNewColor('');
     }
   };
 
-  const handleRemoveColor = (color) => {
-    setColors(colors.filter(c => c !== color));
-    setVariantsToCreate(variantsToCreate.filter(v => v.warna !== color));
-    const newImages = { ...colorImages };
-    delete newImages[color];
-    setColorImages(newImages);
+  const handleRemoveColor = (colorToRemove) => {
+    setColors(prev => prev.filter(c => c !== colorToRemove));
+    setVariantsToCreate(prev => prev.filter(v => v.warna !== colorToRemove));
   };
 
   const handleNextToSizes = () => {
     if (colors.length === 0) {
-      alert('Tambahkan minimal 1 warna');
+      alert('Tambahkan minimal 1 warna terlebih dahulu');
       return;
     }
     setVariantStep('sizes');
   };
 
+  // ===================================================================
+  // BULK CREATE - UKURAN
+  // ===================================================================
   const handleAddSize = () => {
     if (newSize.trim() && !sizes.includes(newSize.trim())) {
-      setSizes([...sizes, newSize.trim()]);
+      setSizes(prev => [...prev, newSize.trim()]);
       setNewSize('');
     }
   };
 
-  const handleRemoveSize = (size) => {
-    setSizes(sizes.filter(s => s !== size));
-    setVariantsToCreate(variantsToCreate.filter(v => v.ukuran !== size));
+  const handleRemoveSize = (sizeToRemove) => {
+    setSizes(prev => prev.filter(s => s !== sizeToRemove));
+    setVariantsToCreate(prev => prev.filter(v => v.ukuran !== sizeToRemove));
   };
 
   const handleNextToStocks = () => {
     if (sizes.length === 0) {
-      alert('Tambahkan minimal 1 ukuran');
+      alert('Tambahkan minimal 1 ukuran terlebih dahulu');
       return;
     }
-    
+
+    const existingColorImages = {};
+    variantsToCreate.forEach(v => {
+      if (v.gambar && !existingColorImages[v.warna]) {
+        existingColorImages[v.warna] = v.gambar;
+      }
+    });
+
     const newVariants = [];
-    colors.forEach(color => {
-      sizes.forEach(size => {
+    for (const color of colors) {
+      const colorImage = existingColorImages[color] || null;
+      for (const size of sizes) {
         newVariants.push({
           id: `${color}-${size}`,
           warna: color,
           ukuran: size,
-          stok: 10
+          stok: 10,
+          gambar: colorImage
         });
-      });
-    });
-    
+      }
+    }
+
     setVariantsToCreate(newVariants);
     setVariantStep('stocks');
   };
 
-  const handleStockChange = (id, stok) => {
-    setVariantsToCreate(variantsToCreate.map(v =>
-      v.id === id ? { ...v, stok: parseInt(stok) || 0 } : v
+  // ===================================================================
+  // BULK CREATE - STOK & GAMBAR
+  // ===================================================================
+  const handleStockChange = (id, newStock) => {
+    setVariantsToCreate(prev => prev.map(v =>
+      v.id === id ? { ...v, stok: parseInt(newStock) || 0 } : v
     ));
   };
 
@@ -181,14 +207,10 @@ function ProductVariantManagement() {
       alert('Tidak ada varian untuk dibuat');
       return;
     }
-    
-    if (!product || !product.slug) {
-      alert('⚠️ Data produk tidak lengkap. Silakan refresh halaman.');
+
+    if (!confirm(`Yakin ingin membuat ${variantsToCreate.length} varian?`)) {
       return;
     }
-
-    const confirmMsg = `Buat ${variantsToCreate.length} varian?\n${colors.length} warna × ${sizes.length} ukuran`;
-    if (!confirm(confirmMsg)) return;
 
     try {
       let successCount = 0;
@@ -197,42 +219,122 @@ function ProductVariantManagement() {
       for (const variant of variantsToCreate) {
         try {
           const sku = generateSKU(variant.ukuran, variant.warna);
-          if (!sku) throw new Error('SKU generation failed');
-
           const payload = {
             sku,
             ukuran: variant.ukuran,
             warna: variant.warna,
-            stok: parseInt(variant.stok) || 0,
+            stok: variant.stok,
             hargaOverride: null,
-            aktif: true
+            aktif: true,
+            gambar: variant.gambar || null
           };
 
           await variantAPI.create(productId, payload);
           successCount++;
         } catch (error) {
-          console.error(`Failed to create variant ${variant.ukuran}-${variant.warna}:`, error);
+          console.error(`Gagal buat varian ${variant.ukuran}-${variant.warna}:`, error);
+          failCount++;
+        }
+      }
+
+      alert(`Berhasil: ${successCount} varian${failCount > 0 ? `\nGagal: ${failCount}` : ''}`);
+      handleCancelForm();
+      fetchVariants();
+    } catch (error) {
+      alert('Terjadi kesalahan saat membuat varian');
+    }
+  };
+
+  // ===================================================================
+  // SYNC FOTO BY COLOR
+  // ===================================================================
+  const handleSyncPhotoByColor = async (colorToSync, newImage) => {
+    try {
+      const variantsWithSameColor = variants.filter(
+        v => v.warna.toLowerCase() === colorToSync.toLowerCase() && v.id !== editingVariant?.id
+      );
+
+      if (variantsWithSameColor.length === 0) {
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const variant of variantsWithSameColor) {
+        try {
+          const payload = {
+            sku: variant.sku,
+            ukuran: variant.ukuran,
+            warna: variant.warna,
+            stok: variant.stok,
+            hargaOverride: variant.hargaOverride,
+            aktif: variant.aktif,
+            gambar: newImage
+          };
+
+          await variantAPI.update(variant.id, payload);
+          successCount++;
+        } catch (error) {
+          console.error(`Gagal sync foto untuk varian ${variant.sku}:`, error);
           failCount++;
         }
       }
 
       if (successCount > 0) {
-        alert(`✅ Berhasil membuat ${successCount} varian${failCount > 0 ? `\n❌ ${failCount} gagal` : ''}!`);
-        handleCancelForm();
+        alert(`✅ Foto berhasil disinkronkan ke ${successCount} varian lain dengan warna "${colorToSync}"${failCount > 0 ? `\n⚠️ ${failCount} varian gagal` : ''}`);
         fetchVariants();
       }
     } catch (error) {
-      console.error('Error creating variants:', error);
-      alert('❌ Gagal membuat varian');
+      console.error('Error syncing photos:', error);
+      alert('Terjadi kesalahan saat sinkronisasi foto');
     }
   };
 
+  // ===================================================================
+  // SINGLE CREATE / EDIT
+  // ===================================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.sku || !formData.ukuran || !formData.warna || !formData.stok) {
-      alert('SKU, ukuran, warna, dan stok wajib diisi');
+      alert('SKU, ukuran, warna, dan stok harus diisi');
       return;
+    }
+
+    const newImage = selectedGambar || formData.gambar || null;
+    const isImageChanged = editingVariant && editingVariant.gambar !== newImage;
+
+    if (editingVariant && isImageChanged) {
+      const variantsWithSameColor = variants.filter(
+        v => v.warna.toLowerCase() === formData.warna.toLowerCase() && v.id !== editingVariant.id
+      );
+
+      if (variantsWithSameColor.length > 0) {
+        setPendingImageUpdate({
+          formData,
+          newImage,
+          colorToSync: formData.warna,
+          affectedCount: variantsWithSameColor.length
+        });
+        setShowSyncConfirmation(true);
+        return;
+      }
+    }
+
+    await saveVariant(newImage, false);
+  };
+
+  const saveVariant = async (newImage, shouldSync) => {
+    // PERBAIKAN HARGA OVERRIDE: Hanya kirim kalau ada nilai valid
+    let hargaOverrideValue = null;
+    if (formData.hargaOverride && formData.hargaOverride.trim() !== '') {
+      const parsed = parseFloat(formData.hargaOverride);
+      if (isNaN(parsed) || parsed < 0) {
+        alert('Harga override harus angka positif');
+        return;
+      }
+      hargaOverrideValue = parsed;
     }
 
     const payload = {
@@ -240,24 +342,41 @@ function ProductVariantManagement() {
       ukuran: formData.ukuran,
       warna: formData.warna,
       stok: parseInt(formData.stok),
-      hargaOverride: formData.hargaOverride ? parseInt(formData.hargaOverride) : null,
-      aktif: formData.aktif
+      aktif: formData.aktif,
+      gambar: newImage
     };
+
+    if (hargaOverrideValue !== null) {
+      payload.hargaOverride = hargaOverrideValue;
+    }
 
     try {
       if (editingVariant) {
         await variantAPI.update(editingVariant.id, payload);
         alert('Varian berhasil diupdate!');
+
+        if (shouldSync) {
+          await handleSyncPhotoByColor(formData.warna, newImage);
+        }
       } else {
         await variantAPI.create(productId, payload);
         alert('Varian berhasil dibuat!');
       }
-      
+
       handleCancelForm();
       fetchVariants();
     } catch (error) {
       console.error('Error saving variant:', error);
       alert('Gagal menyimpan varian');
+    }
+  };
+
+  const handleConfirmSync = async (shouldSync) => {
+    setShowSyncConfirmation(false);
+    
+    if (pendingImageUpdate) {
+      await saveVariant(pendingImageUpdate.newImage, shouldSync);
+      setPendingImageUpdate(null);
     }
   };
 
@@ -268,9 +387,11 @@ function ProductVariantManagement() {
       ukuran: variant.ukuran,
       warna: variant.warna,
       stok: variant.stok.toString(),
-      hargaOverride: variant.hargaOverride?.toString() || '',
-      aktif: variant.aktif
+      hargaOverride: variant.hargaOverride !== null ? variant.hargaOverride.toString() : '',
+      aktif: variant.aktif,
+      gambar: variant.gambar || ''
     });
+    setSelectedGambar(variant.gambar || '');
     setShowForm(true);
   };
 
@@ -282,7 +403,6 @@ function ProductVariantManagement() {
       alert('Varian berhasil dihapus!');
       fetchVariants();
     } catch (error) {
-      console.error('Error deleting variant:', error);
       alert('Gagal menghapus varian');
     }
   };
@@ -296,14 +416,21 @@ function ProductVariantManagement() {
       warna: '',
       stok: '',
       hargaOverride: '',
-      aktif: true
+      aktif: true,
+      gambar: ''
     });
+    setSelectedGambar('');
     setColors([]);
     setSizes([]);
     setVariantsToCreate([]);
     setVariantStep('colors');
+    setCurrentColorForPicker('');
+    setPendingImageUpdate(null);
   };
 
+  // ===================================================================
+  // UTILS
+  // ===================================================================
   const safeVariants = Array.isArray(variants) ? variants : [];
   const uniqueSizes = [...new Set(safeVariants.map(v => v.ukuran))];
   const uniqueColors = [...new Set(safeVariants.map(v => v.warna))];
@@ -407,8 +534,8 @@ function ProductVariantManagement() {
                   <div key={variant.id} className="bg-white rounded-2xl shadow-sm border border-pink-100 p-4">
                     <div className="flex gap-4">
                       <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
-                        {colorImages[variant.warna] ? (
-                          <img src={colorImages[variant.warna]} alt={variant.warna} className="w-full h-full object-cover" />
+                        {variant.gambar ? (
+                          <img src={variant.gambar} alt={variant.warna} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <Package className="w-8 h-8 text-gray-400" />
@@ -425,13 +552,11 @@ function ProductVariantManagement() {
                         <p className="text-sm text-gray-600 mt-1">Stok: <span className="font-bold">{variant.stok} pcs</span></p>
                         {variant.aktif ? (
                           <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold mt-2">
-                            <Check className="w-3 h-3" />
-                            Aktif
+                            <Check className="w-3 h-3" /> Aktif
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-semibold mt-2">
-                            <X className="w-3 h-3" />
-                            Nonaktif
+                            <X className="w-3 h-3" /> Nonaktif
                           </span>
                         )}
                       </div>
@@ -441,15 +566,13 @@ function ProductVariantManagement() {
                         onClick={() => handleEdit(variant)}
                         className="flex-1 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-medium flex items-center justify-center gap-2"
                       >
-                        <Edit2 className="w-4 h-4" />
-                        Edit
+                        <Edit2 className="w-4 h-4" /> Edit
                       </button>
                       <button
                         onClick={() => handleDelete(variant.id, variant.sku)}
                         className="flex-1 py-2.5 bg-red-50 text-red-600 rounded-xl font-medium flex items-center justify-center gap-2"
                       >
-                        <Trash2 className="w-4 h-4" />
-                        Hapus
+                        <Trash2 className="w-4 h-4" /> Hapus
                       </button>
                     </div>
                   </div>
@@ -476,9 +599,9 @@ function ProductVariantManagement() {
                       {safeVariants.map((variant) => (
                         <tr key={variant.id} className="hover:bg-pink-50/50 transition-colors">
                           <td className="px-6 py-4">
-                            {colorImages[variant.warna] ? (
-                              <img 
-                                src={colorImages[variant.warna]} 
+                            {variant.gambar ? (
+                              <img
+                                src={variant.gambar}
                                 alt={variant.warna}
                                 className="w-14 h-14 object-cover rounded-lg border-2 border-gray-200 hover:border-[#cb5094] transition-all"
                               />
@@ -519,13 +642,11 @@ function ProductVariantManagement() {
                           <td className="px-6 py-4 text-center">
                             {variant.aktif ? (
                               <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold">
-                                <Check className="w-3 h-3" />
-                                Aktif
+                                <Check className="w-3 h-3" /> Aktif
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-semibold">
-                                <X className="w-3 h-3" />
-                                Nonaktif
+                                <X className="w-3 h-3" /> Nonaktif
                               </span>
                             )}
                           </td>
@@ -549,58 +670,116 @@ function ProductVariantManagement() {
           )}
         </div>
 
-        {/* Image Picker Modal */}
-        {selectingImageForColor && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-5 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Pilih Foto untuk Warna: <span className="text-[#cb5094]">{selectingImageForColor}</span>
-                </h3>
+        {/* Sync Confirmation Modal */}
+        {showSyncConfirmation && pendingImageUpdate && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Sinkronkan Foto?</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Ditemukan {pendingImageUpdate.affectedCount} varian lain dengan warna "{pendingImageUpdate.colorToSync}"
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-xl p-4 mb-6">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  Apakah Anda ingin <strong className="text-[#cb5094]">otomatis mengupdate foto</strong> untuk semua varian dengan warna <strong>"{pendingImageUpdate.colorToSync}"</strong>?
+                </p>
+                <p className="text-xs text-gray-600 mt-2">
+                  ✨ Ini akan membuat semua varian dengan warna yang sama menggunakan foto yang baru
+                </p>
+              </div>
+
+              <div className="flex gap-3">
                 <button
-                  onClick={() => setSelectingImageForColor(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-all"
+                  onClick={() => handleConfirmSync(true)}
+                  className="flex-1 bg-[#cb5094] text-white py-3 rounded-xl font-bold hover:bg-[#b54684] transition-all"
                 >
-                  <X className="w-5 h-5" />
+                  Ya, Sinkronkan
+                </button>
+                <button
+                  onClick={() => handleConfirmSync(false)}
+                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all"
+                >
+                  Tidak
                 </button>
               </div>
-              
-              <div className="grid grid-cols-3 gap-3">
-                {(() => {
-                  const images = product.gambarUrl?.split('|||').filter(url => url) || [];
-                  
-                  if (images.length === 0) {
-                    return (
-                      <div className="col-span-3 text-center py-8 text-gray-500">
-                        <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Belum ada foto produk</p>
-                      </div>
-                    );
-                  }
-                  
-                  return images.map((url, idx) => (
-                    <div
-                      key={idx}
+            </div>
+          </div>
+        )}
+
+        {/* Image Picker Modal */}
+        {showImagePicker && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[70] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900">
+                  Pilih Gambar Varian {currentColorForPicker && ` untuk ${currentColorForPicker}`}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowImagePicker(false);
+                    setCurrentColorForPicker('');
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {(product.gambarUrl?.split('|||').filter(Boolean) || []).map((url, i) => {
+                  const currentSelectedImage = currentColorForPicker
+                    ? variantsToCreate.find(v => v.warna === currentColorForPicker)?.gambar || null
+                    : selectedGambar;
+
+                  const isSelected = currentSelectedImage === url;
+
+                  return (
+                    <button
+                      key={i}
+                      type="button"
                       onClick={() => {
-                        setColorImages({ ...colorImages, [selectingImageForColor]: url });
-                        setSelectingImageForColor(null);
+                        if (currentColorForPicker) {
+                          setVariantsToCreate(prev =>
+                            prev.map(v =>
+                              v.warna === currentColorForPicker ? { ...v, gambar: url } : v
+                            )
+                          );
+                          setSelectedGambar('');
+                          setCurrentColorForPicker('');
+                          setShowImagePicker(false);
+                        } else {
+                          setSelectedGambar(url);
+                          setShowImagePicker(false);
+                        }
                       }}
-                      className={`cursor-pointer rounded-xl overflow-hidden border-2 hover:border-[#cb5094] transition-all ${
-                        colorImages[selectingImageForColor] === url
-                          ? 'border-[#cb5094] ring-2 ring-[#cb5094] ring-offset-2'
-                          : 'border-gray-200'
+                      className={`relative rounded-xl overflow-hidden border-4 transition-all hover:scale-105 ${
+                        isSelected ? 'border-[#cb5094] ring-4 ring-[#cb5094]/50' : 'border-gray-300'
                       }`}
                     >
-                      <img src={url} alt="" className="w-full h-32 object-cover" />
-                      {colorImages[selectingImageForColor] === url && (
-                        <div className="bg-[#cb5094] text-white text-center py-1 text-xs font-bold">
+                      <img src={url} alt={`Foto ${i + 1}`} className="w-full h-48 object-cover" />
+                      {isSelected && (
+                        <div className="absolute inset-x-0 bottom-0 bg-[#cb5094] text-white text-center py-2 font-bold text-sm">
                           ✓ Dipilih
                         </div>
                       )}
-                    </div>
-                  ));
-                })()}
+                    </button>
+                  );
+                })}
               </div>
+
+              {(product.gambarUrl?.split('|||').filter(Boolean) || []).length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  <Package className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="font-medium">Belum ada foto produk</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -649,16 +828,14 @@ function ProductVariantManagement() {
                             required
                           />
                         </div>
-                        
-                        {/* Preview gambar untuk single edit */}
                         <div>
                           <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                             Gambar Varian (Opsional)
                           </label>
                           <div className="flex items-center gap-2">
-                            {colorImages[formData.warna] ? (
-                              <img 
-                                src={colorImages[formData.warna]} 
+                            {selectedGambar || formData.gambar ? (
+                              <img
+                                src={selectedGambar || formData.gambar}
                                 alt="Preview"
                                 className="w-16 h-16 object-cover rounded-lg border-2 border-[#cb5094]"
                               />
@@ -669,14 +846,13 @@ function ProductVariantManagement() {
                             )}
                             <button
                               type="button"
-                              onClick={() => setSelectingImageForColor(formData.warna)}
+                              onClick={() => setShowImagePicker(true)}
                               className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600"
                             >
-                              {colorImages[formData.warna] ? 'Ganti Foto' : 'Pilih Foto'}
+                              {selectedGambar || formData.gambar ? 'Ganti Foto' : 'Pilih Foto'}
                             </button>
                           </div>
                         </div>
-                        
                         <div>
                           <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                             SKU <span className="text-[#cb5094]">*</span>
@@ -702,7 +878,6 @@ function ProductVariantManagement() {
                           </div>
                         </div>
                       </div>
-
                       <div className="space-y-3">
                         <div>
                           <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -725,6 +900,8 @@ function ProductVariantManagement() {
                             type="number"
                             value={formData.hargaOverride}
                             onChange={(e) => setFormData({ ...formData, hargaOverride: e.target.value })}
+                            min="0"
+                            step="1000"
                             placeholder={`Default: ${formatPrice(product.hargaDasar)}`}
                             className="w-full px-3 py-2 text-sm border rounded-lg"
                           />
@@ -743,7 +920,6 @@ function ProductVariantManagement() {
                         </div>
                       </div>
                     </div>
-
                     <div className="flex gap-2 mt-5">
                       <button
                         type="submit"
@@ -762,217 +938,220 @@ function ProductVariantManagement() {
                   </form>
                 ) : (
                   <div>
-                    <div className="flex items-center justify-center gap-2 mb-4">
-                      <div className={`flex items-center gap-1.5 ${variantStep === 'colors' ? 'text-[#cb5094]' : 'text-gray-400'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${variantStep === 'colors' ? 'bg-[#cb5094] text-white' : 'bg-gray-200'}`}>1</div>
-                        <span className="font-semibold text-xs">Warna</span>
+                    <div className="flex items-center justify-center gap-4 mb-6">
+                      <div className={`flex items-center gap-2 ${variantStep === 'colors' ? 'text-[#cb5094]' : 'text-gray-500'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${variantStep === 'colors' ? 'bg-[#cb5094] text-white' : 'bg-gray-200'}`}>
+                          1
+                        </div>
+                        <span>Warna</span>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-gray-400" />
-                      <div className={`flex items-center gap-1.5 ${variantStep === 'sizes' ? 'text-[#cb5094]' : 'text-gray-400'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${variantStep === 'sizes' ? 'bg-[#cb5094] text-white' : 'bg-gray-200'}`}>2</div>
-                        <span className="font-semibold text-xs">Ukuran</span>
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                      <div className={`flex items-center gap-2 ${variantStep === 'sizes' ? 'text-[#cb5094]' : 'text-gray-500'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${variantStep === 'sizes' ? 'bg-[#cb5094] text-white' : 'bg-gray-200'}`}>
+                          2
+                        </div>
+                        <span>Ukuran</span>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-gray-400" />
-                      <div className={`flex items-center gap-1.5 ${variantStep === 'stocks' ? 'text-[#cb5094]' : 'text-gray-400'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${variantStep === 'stocks' ? 'bg-[#cb5094] text-white' : 'bg-gray-200'}`}>3</div>
-                        <span className="font-semibold text-xs">Stok</span>
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                      <div className={`flex items-center gap-2 ${variantStep === 'stocks' ? 'text-[#cb5094]' : 'text-gray-500'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${variantStep === 'stocks' ? 'bg-[#cb5094] text-white' : 'bg-gray-200'}`}>
+                          3
+                        </div>
+                        <span>Stok & Gambar</span>
                       </div>
                     </div>
 
                     {variantStep === 'colors' && (
-                      <div className="bg-pink-50 rounded-xl p-4 border border-pink-100">
-                        <h4 className="font-bold text-gray-800 mb-2 text-xs">Langkah 1: Tambahkan Warna & Pilih Foto</h4>
-                        
-                        {colors.length > 0 && (
-                          <div className="space-y-2 mb-3">
-                            {colors.map(color => (
-                              <div key={color} className="bg-white border border-[#cb5094] rounded-lg p-2 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  {colorImages[color] ? (
-                                    <img 
-                                      src={colorImages[color]} 
-                                      alt={color}
-                                      className="w-12 h-12 object-cover rounded border-2 border-[#cb5094]"
-                                    />
-                                  ) : (
-                                    <div className="w-12 h-12 bg-gray-100 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
-                                      <Package className="w-5 h-5 text-gray-400" />
-                                    </div>
-                                  )}
-                                  
-                                  <div>
-                                    <span className="text-[#cb5094] font-semibold text-sm">{color}</span>
-                                    <p className="text-xs text-gray-500">
-                                      {colorImages[color] ? '✓ Foto dipilih' : 'Belum pilih foto'}
-                                    </p>
-                                  </div>
-                                </div>
-                                
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectingImageForColor(color)}
-                                    className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600"
-                                  >
-                                    {colorImages[color] ? 'Ganti' : 'Pilih Foto'}
-                                  </button>
-                                  
+                      <div className="space-y-4">
+                        <div className="bg-pink-50 rounded-xl p-4 border border-pink-200">
+                          <h4 className="font-bold mb-3">Tambahkan Warna</h4>
+                          {colors.length > 0 && (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                              {colors.map(color => (
+                                <div key={color} className="bg-white rounded-lg p-3 border flex items-center justify-between">
+                                  <span className="font-medium">{color}</span>
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveColor(color)}
-                                    className="p-1.5 hover:bg-red-100 rounded-lg text-red-600"
+                                    className="text-red-600 hover:bg-red-50 rounded p-1"
                                   >
                                     <X className="w-4 h-4" />
                                   </button>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Misal: Abu-abu, Hitam"
+                              value={newColor}
+                              onChange={e => setNewColor(e.target.value)}
+                              onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), handleAddColor())}
+                              className="flex-1 px-4 py-2 border rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddColor}
+                              className="bg-[#cb5094] text-white px-6 py-2 rounded-lg font-medium"
+                            >
+                              Tambah
+                            </button>
                           </div>
-                        )}
-                        
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Contoh: Hitam, Putih"
-                            value={newColor}
-                            onChange={(e) => setNewColor(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddColor())}
-                            className="flex-1 px-3 py-2 text-sm border rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleAddColor}
-                            className="bg-[#cb5094] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#b54684]"
-                          >
-                            Tambah
-                          </button>
                         </div>
-                        
                         {colors.length > 0 && (
                           <button
-                            type="button"
                             onClick={handleNextToSizes}
-                            className="w-full mt-3 bg-[#cb5094] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#b54684] flex items-center justify-center gap-1.5"
+                            className="w-full bg-[#cb5094] text-white py-3 rounded-xl font-bold"
                           >
-                            Lanjut <ChevronRight className="w-4 h-4" />
+                            Lanjut ke Ukuran →
                           </button>
                         )}
                       </div>
                     )}
 
                     {variantStep === 'sizes' && (
-                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold text-gray-800 text-xs">Langkah 2: Tambahkan Ukuran</h4>
-                          <button
-                            type="button"
-                            onClick={() => setVariantStep('colors')}
-                            className="text-xs text-gray-600 hover:text-gray-800 font-medium"
-                          >
-                            ← Kembali
-                          </button>
-                        </div>
-                        
-                        {sizes.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            {sizes.map(size => (
-                              <span key={size} className="bg-white border border-blue-500 text-blue-600 px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
-                                {size}
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveSize(size)}
-                                  className="hover:bg-blue-100 rounded-full p-0.5"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </span>
-                            ))}
+                      <div className="space-y-4">
+                        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                          <div className="flex justify-between mb-3">
+                            <h4 className="font-bold">Tambahkan Ukuran</h4>
+                            <button onClick={() => setVariantStep('colors')} className="text-sm text-gray-600">
+                              ← Kembali
+                            </button>
                           </div>
-                        )}
-                        
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Contoh: S, M, L"
-                            value={newSize}
-                            onChange={(e) => setNewSize(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSize())}
-                            className="flex-1 px-3 py-2 text-sm border rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleAddSize}
-                            className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600"
-                          >
-                            Tambah
-                          </button>
+                          {sizes.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {sizes.map(size => (
+                                <span key={size} className="bg-white border border-blue-500 text-blue-700 px-4 py-2 rounded-full font-medium flex items-center gap-2">
+                                  {size}
+                                  <button onClick={() => handleRemoveSize(size)} className="hover:bg-blue-100 rounded-full p-1">
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Misal: S, M, L, XL"
+                              value={newSize}
+                              onChange={e => setNewSize(e.target.value)}
+                              onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), handleAddSize())}
+                              className="flex-1 px-4 py-2 border rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddSize}
+                              className="bg-blue-500 text-white px-6 py-2 rounded-lg font-medium"
+                            >
+                              Tambah
+                            </button>
+                          </div>
                         </div>
-
                         {sizes.length > 0 && (
                           <button
-                            type="button"
                             onClick={handleNextToStocks}
-                            className="w-full mt-2 bg-[#cb5094] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#b54684] flex items-center justify-center gap-1.5"
+                            className="w-full bg-[#cb5094] text-white py-3 rounded-xl font-bold"
                           >
-                            Lanjut <ChevronRight className="w-4 h-4" />
+                            Lanjut ke Stok & Gambar →
                           </button>
                         )}
                       </div>
                     )}
 
                     {variantStep === 'stocks' && (
-                      <div className="bg-green-50 rounded-xl p-4 border border-green-100">
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <h4 className="font-bold text-gray-800 text-xs">Langkah 3: Atur Stok</h4>
-                            <p className="text-xs text-gray-600 mt-0.5">
-                              Total: <span className="font-bold text-[#cb5094]">{variantsToCreate.length}</span> varian
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setVariantStep('sizes')}
-                            className="text-xs text-gray-600 hover:text-gray-800 font-medium"
-                          >
-                            ← Kembali
-                          </button>
-                        </div>
-
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {variantsToCreate.map(variant => (
-                            <div key={variant.id} className="bg-white rounded-lg p-2.5 border flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <span className="bg-pink-100 text-[#cb5094] px-2 py-0.5 rounded-full text-xs font-semibold">
-                                  {variant.warna}
-                                </span>
-                                <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs font-semibold">
-                                  {variant.ukuran}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <label className="text-xs font-semibold text-gray-700">Stok:</label>
-                                <input
-                                  type="number"
-                                  value={variant.stok}
-                                  onChange={(e) => handleStockChange(variant.id, e.target.value)}
-                                  className="w-16 px-2 py-1 border rounded text-xs"
-                                  min="0"
-                                />
-                              </div>
+                      <div className="space-y-6">
+                        <div className="bg-green-50 rounded-xl p-6 border border-green-200">
+                          <div className="flex justify-between items-center mb-6">
+                            <div>
+                              <h4 className="text-xl font-bold text-gray-800">Atur Gambar per Warna</h4>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Pilih sekali per warna → otomatis berlaku untuk semua ukuran
+                              </p>
                             </div>
-                          ))}
-                        </div>
+                            <button
+                              onClick={() => setVariantStep('sizes')}
+                              className="text-sm text-gray-600 hover:text-gray-800"
+                            >
+                              ← Kembali
+                            </button>
+                          </div>
 
-                        <div className="mt-2 bg-white rounded-lg p-2.5 border border-green-200">
-                          <p className="text-xs text-gray-600">
-                            ✅ Total stok: <span className="font-bold text-green-600">{variantsToCreate.reduce((sum, v) => sum + v.stok, 0)} pcs</span>
-                          </p>
+                          {/* Pilih gambar per warna */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                            {colors.map(color => {
+                              const currentImage = variantsToCreate.find(v => v.warna === color)?.gambar || null;
+
+                              return (
+                                <div key={color} className="bg-white rounded-2xl p-5 border-2 border-gray-200 shadow-sm text-center">
+                                  <h5 className="font-bold text-lg text-[#cb5094] mb-4">{color}</h5>
+                                  {currentImage ? (
+                                    <img
+                                      src={currentImage}
+                                      alt={color}
+                                      className="w-40 h-40 object-cover rounded-xl border-4 border-[#cb5094] mx-auto mb-4 shadow-md"
+                                    />
+                                  ) : (
+                                    <div className="w-40 h-40 bg-gray-100 rounded-xl border-4 border-dashed border-gray-400 mx-auto mb-4 flex items-center justify-center">
+                                      <Package className="w-16 h-16 text-gray-400" />
+                                    </div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCurrentColorForPicker(color);
+                                      setShowImagePicker(true);
+                                    }}
+                                    className="w-full py-3 bg-[#cb5094] text-white rounded-xl font-bold hover:bg-[#b54684] transition-all shadow-md"
+                                  >
+                                    {currentImage ? 'Ganti Foto' : 'Pilih Foto'}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Atur stok per varian */}
+                          <div>
+                            <h4 className="text-xl font-bold text-gray-800 mb-4">Atur Stok per Varian</h4>
+                            <div className="max-h-80 overflow-y-auto space-y-3">
+                              {variantsToCreate.map(v => (
+                                <div key={v.id} className="bg-white rounded-lg p-4 border flex items-center justify-between shadow-sm">
+                                  <div className="flex items-center gap-6">
+                                    <div className="text-center">
+                                      <span className="bg-purple-100 text-purple-700 px-4 py-2 rounded-full font-bold">{v.warna}</span>
+                                    </div>
+                                    <div className="text-center">
+                                      <span className="bg-blue-100 text-blue-700 px-4 py-2 rounded-full font-bold">{v.ukuran}</span>
+                                    </div>
+                                    {v.gambar ? (
+                                      <img src={v.gambar} alt={v.warna} className="w-16 h-16 object-cover rounded-lg border" />
+                                    ) : (
+                                      <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500">
+                                        No Img
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    <label className="font-medium">Stok:</label>
+                                    <input
+                                      type="number"
+                                      value={v.stok}
+                                      onChange={e => handleStockChange(v.id, e.target.value)}
+                                      className="w-24 px-3 py-2 border rounded-lg text-center font-medium"
+                                      min="0"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
 
                         <button
-                          type="button"
                           onClick={handleCreateMultipleVariants}
-                          className="w-full mt-3 bg-[#cb5094] text-white py-2.5 rounded-xl font-semibold hover:bg-[#b54684]"
+                          className="w-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white py-5 rounded-xl font-bold text-xl hover:shadow-xl transition-all"
                         >
                           Buat {variantsToCreate.length} Varian
                         </button>

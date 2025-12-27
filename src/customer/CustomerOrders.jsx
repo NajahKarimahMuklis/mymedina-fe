@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Clock, CheckCircle, XCircle, Truck, ShoppingBag, AlertCircle, 
-  CreditCard, Package, User, Phone, MapPin 
+  CreditCard, Package, User, Phone, MapPin, Trash2 
 } from 'lucide-react';
 import api from '../utils/api';
 import { formatPrice } from '../utils/formatPrice';
+import toast from 'react-hot-toast';
 
 function CustomerOrders() {
   const [orders, setOrders] = useState([]);
@@ -33,14 +34,12 @@ function CustomerOrders() {
         const orderItems = Array.isArray(order.items) ? order.items : [];
 
         const items = orderItems.map((item, idx) => {
-          // FIX NAMA PRODUK: coba beberapa kemungkinan field
           let nama = 'Produk Tidak Diketahui';
           if (item.namaProduk) nama = item.namaProduk;
           else if (item.product?.nama) nama = item.product.nama;
           else if (item.variant?.nama) nama = item.variant.nama;
           else if (item.nama) nama = item.nama;
 
-          // FIX GAMBAR: coba semua kemungkinan field
           let imageUrl = placeholderImage;
           if (item.gambarVariant && typeof item.gambarVariant === 'string' && item.gambarVariant.trim()) {
             imageUrl = item.gambarVariant.trim();
@@ -68,7 +67,6 @@ function CustomerOrders() {
           };
         });
 
-        // Format alamat
         const alamatBaris2 = order.alamatBaris2 ? `, ${order.alamatBaris2}` : '';
         const alamat = `${order.alamatBaris1 || ''}${alamatBaris2}, ${order.kota || ''}, ${order.provinsi || ''} ${order.kodePos || ''}`;
         const alamatClean = alamat.replace(/^,\s*|\s*,\s*$/g, '').trim() || 'Alamat tidak tersedia';
@@ -134,6 +132,25 @@ function CustomerOrders() {
   const handlePayment = (order) => {
     if (order?.orderId) {
       navigate(`/customer/payment/${order.orderId}`);
+    }
+  };
+
+  // FITUR HAPUS PESANAN (HANYA UNTUK YANG BELUM DIBAYAR)
+  const handleDeleteOrder = async (order) => {
+    if (!window.confirm(`Apakah Anda yakin ingin membatalkan pesanan ${order.id}?\nPesanan yang belum dibayar akan dihapus permanen.`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/orders/${order.orderId}`);
+      toast.success(`Pesanan ${order.id} berhasil dibatalkan dan dihapus!`, {
+        duration: 4000,
+        icon: '🗑️',
+      });
+      loadOrders(); // Refresh daftar pesanan
+    } catch (err) {
+      console.error('Delete order error:', err);
+      toast.error(err.response?.data?.message || 'Gagal membatalkan pesanan. Coba lagi.');
     }
   };
 
@@ -306,51 +323,60 @@ function CustomerOrders() {
                       ))}
                     </div>
 
-                    {/* Footer */}
+                    {/* Footer Mobile */}
                     <div className="px-3 py-3 bg-gray-50 border-t border-gray-100">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-3">
                         <span className="text-xs text-gray-600">Total Barang: {order.items.reduce((sum, item) => sum + item.quantity, 0)}</span>
                         <span className="text-lg font-bold text-[#cb5094]">{formatPrice(order.total)}</span>
                       </div>
-                      
-                      {order.status === 'pending' && (
-                        <button 
-                          onClick={() => handlePayment(order)} 
-                          className="w-full bg-[#cb5094] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#b54684] transition-colors flex items-center justify-center gap-2"
-                        >
-                          <CreditCard className="w-4 h-4" />
-                          Bayar Sekarang
-                        </button>
-                      )}
-                      {order.status === 'shipping' && (
-                        <button className="w-full border-2 border-[#cb5094] text-[#cb5094] py-2 rounded-lg text-sm font-semibold hover:bg-[#cb5094] hover:text-white transition-colors flex items-center justify-center gap-2">
-                          <Truck className="w-4 h-4" />
-                          Lacak Pesanan
-                        </button>
-                      )}
-                      {order.status === 'confirmed' && (
-                        <div className="w-full text-center py-2 text-sm text-gray-500 font-medium">
-                          Pesanan sedang dikemas
-                        </div>
-                      )}
-                      {order.status === 'delivered' && (
-                        <div className="w-full text-center py-2 text-sm text-green-600 font-semibold">
-                          ✓ Pesanan Selesai
-                        </div>
-                      )}
-                      {order.status === 'cancelled' && (
-                        <div className="w-full text-center py-2 text-sm text-gray-400 font-medium">
-                          Pesanan Dibatalkan
-                        </div>
-                      )}
+
+                      <div className="flex flex-col gap-2">
+                        {order.status === 'pending' && (
+                          <>
+                            <button 
+                              onClick={() => handlePayment(order)} 
+                              className="w-full bg-[#cb5094] text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-[#b54684] transition-colors flex items-center justify-center gap-2"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                              Bayar Sekarang
+                            </button>
+                            <button
+                              onClick={() => handleDeleteOrder(order)}
+                              className="w-full bg-red-500 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Batalkan Pesanan
+                            </button>
+                          </>
+                        )}
+                        {order.status === 'shipping' && (
+                          <button className="w-full border-2 border-[#cb5094] text-[#cb5094] py-2.5 rounded-lg text-sm font-semibold hover:bg-[#cb5094] hover:text-white transition-colors flex items-center justify-center gap-2">
+                            <Truck className="w-4 h-4" />
+                            Lacak Pesanan
+                          </button>
+                        )}
+                        {order.status === 'confirmed' && (
+                          <div className="w-full text-center py-2 text-sm text-gray-500 font-medium">
+                            Pesanan sedang dikemas
+                          </div>
+                        )}
+                        {order.status === 'delivered' && (
+                          <div className="w-full text-center py-2 text-sm text-green-600 font-semibold">
+                            ✓ Pesanan Selesai
+                          </div>
+                        )}
+                        {order.status === 'cancelled' && (
+                          <div className="w-full text-center py-2 text-sm text-gray-400 font-medium">
+                            Pesanan Dibatalkan
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {/* DESKTOP LAYOUT */}
                   <div className="hidden md:block">
-                    {/* Header VERTIKAL */}
                     <div className="px-4 py-3 border-b border-gray-100">
-                      {/* Baris 1: Order ID + Status */}
                       <div className="flex items-center justify-between mb-2">
                         <div>
                           <p className="font-bold text-sm text-gray-900">{order.id}</p>
@@ -368,7 +394,6 @@ function CustomerOrders() {
                         </div>
                       </div>
                       
-                      {/* Baris 2: Info Pengguna - VERTIKAL */}
                       <div className="flex items-start gap-2 mb-2">
                         <User className="w-4 h-4 text-[#cb5094] mt-0.5 flex-shrink-0" />
                         <div>
@@ -377,14 +402,12 @@ function CustomerOrders() {
                         </div>
                       </div>
 
-                      {/* Baris 3: Info Alamat - VERTIKAL DI BAWAH USER */}
                       <div className="flex items-start gap-2">
                         <MapPin className="w-4 h-4 text-[#cb5094] mt-0.5 flex-shrink-0" />
                         <p className="text-xs text-gray-600 leading-relaxed">{order.alamat}</p>
                       </div>
                     </div>
 
-                    {/* Items - 1 produk 1 baris horizontal */}
                     {order.items.map((item, idx) => (
                       <div key={item.id} className={`px-4 py-3 flex items-center gap-4 ${idx > 0 ? 'border-t border-gray-100' : ''}`}>
                         <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-100">
@@ -416,7 +439,6 @@ function CustomerOrders() {
                       </div>
                     ))}
 
-                    {/* Footer - horizontal */}
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
                       <div className="flex items-center gap-6">
                         <span className="text-xs text-gray-600">Total Barang: {order.items.reduce((sum, item) => sum + item.quantity, 0)}</span>
@@ -426,15 +448,24 @@ function CustomerOrders() {
                         </div>
                       </div>
                       
-                      <div>
+                      <div className="flex items-center gap-3">
                         {order.status === 'pending' && (
-                          <button 
-                            onClick={() => handlePayment(order)} 
-                            className="bg-[#cb5094] text-white py-2 px-6 rounded-lg text-sm font-semibold hover:bg-[#b54684] transition-colors flex items-center gap-2"
-                          >
-                            <CreditCard className="w-4 h-4" />
-                            Bayar Sekarang
-                          </button>
+                          <>
+                            <button 
+                              onClick={() => handlePayment(order)} 
+                              className="bg-[#cb5094] text-white py-2 px-6 rounded-lg text-sm font-semibold hover:bg-[#b54684] transition-colors flex items-center gap-2"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                              Bayar Sekarang
+                            </button>
+                            <button
+                              onClick={() => handleDeleteOrder(order)}
+                              className="border-2 border-red-500 text-red-500 py-2 px-6 rounded-lg text-sm font-semibold hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Batalkan
+                            </button>
+                          </>
                         )}
                         {order.status === 'shipping' && (
                           <button className="border-2 border-[#cb5094] text-[#cb5094] py-2 px-6 rounded-lg text-sm font-semibold hover:bg-[#cb5094] hover:text-white transition-colors flex items-center gap-2">
