@@ -1,8 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
-  Mail, Lock, Eye, EyeOff, User, Menu, X, Phone, CheckCircle, XCircle, AlertCircle
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  User,
+  Menu,
+  X,
+  Phone,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from "lucide-react";
+import { Link } from "react-router-dom";
 
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);
@@ -20,21 +30,33 @@ function Notification({ type, message, onClose }) {
   };
 
   const configs = {
-    success: { bgColor: 'bg-green-500', shadowColor: 'shadow-green-500/50' },
-    error: { bgColor: 'bg-red-500', shadowColor: 'shadow-red-500/50' },
-    warning: { bgColor: 'bg-yellow-500', shadowColor: 'shadow-yellow-500/50' }
+    success: { bgColor: "bg-green-500", shadowColor: "shadow-green-500/50" },
+    error: { bgColor: "bg-red-500", shadowColor: "shadow-red-500/50" },
+    warning: { bgColor: "bg-yellow-500", shadowColor: "shadow-yellow-500/50" },
   };
   const config = configs[type] || configs.success;
-  const Icon = type === 'success' ? CheckCircle : type === 'warning' ? AlertCircle : XCircle;
+  const Icon =
+    type === "success"
+      ? CheckCircle
+      : type === "warning"
+      ? AlertCircle
+      : XCircle;
 
   return (
-    <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ${
-      isExiting ? '-translate-y-20 opacity-0' : 'translate-y-0 opacity-100'
-    }`}>
-      <div className={`flex items-center gap-3 ${config.bgColor} text-white rounded-full px-6 py-3.5 shadow-2xl ${config.shadowColor} min-w-[300px] max-w-lg backdrop-blur-md border border-white/20`}>
+    <div
+      className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ${
+        isExiting ? "-translate-y-20 opacity-0" : "translate-y-0 opacity-100"
+      }`}
+    >
+      <div
+        className={`flex items-center gap-3 ${config.bgColor} text-white rounded-full px-6 py-3.5 shadow-2xl ${config.shadowColor} min-w-[300px] max-w-lg backdrop-blur-md border border-white/20`}
+      >
         <Icon className="w-6 h-6 flex-shrink-0" />
         <p className="text-sm font-medium flex-1 text-center">{message}</p>
-        <button onClick={handleClose} className="hover:bg-white/20 rounded-full p-1.5 transition-all">
+        <button
+          onClick={handleClose}
+          className="hover:bg-white/20 rounded-full p-1.5 transition-all"
+        >
           <X className="w-5 h-5" />
         </button>
       </div>
@@ -45,11 +67,11 @@ function Notification({ type, message, onClose }) {
 function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState(null);
@@ -67,93 +89,113 @@ function SignUp() {
     if (e) e.preventDefault();
 
     if (!name || !email || !phone || !password || !confirmPassword) {
-      showNotification('error', 'Semua kolom wajib diisi!');
+      showNotification("error", "Semua kolom wajib diisi!");
       return;
     }
 
     if (password !== confirmPassword) {
-      showNotification('error', 'Password tidak cocok. Silakan periksa kembali');
+      showNotification(
+        "error",
+        "Password tidak cocok. Silakan periksa kembali"
+      );
       return;
     }
 
     if (password.length < 8) {
-      showNotification('warning', 'Password minimal 8 karakter untuk keamanan akun Anda');
+      showNotification(
+        "warning",
+        "Password minimal 8 karakter untuk keamanan akun Anda"
+      );
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      showNotification('error', 'Format email tidak valid');
+      showNotification("error", "Format email tidak valid");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      console.log('Signing up with:', {
+      console.log("Signing up with:", {
         nama: name.trim(),
         email: email.toLowerCase().trim(),
-        nomorTelepon: phone.replace(/\D/g, ''),
+        nomorTelepon: phone.replace(/\D/g, ""),
       });
 
-      const res = await fetch('http://localhost:5000/api/auth/daftar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("http://localhost:5000/api/auth/daftar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nama: name.trim(),
           email: email.toLowerCase().trim(),
-          nomorTelepon: phone.replace(/\D/g, ''),
+          nomorTelepon: phone.replace(/\D/g, ""),
           password,
         }),
       });
 
-      console.log('Response status:', res.status);
+      console.log("Response status:", res.status);
 
       let data;
       try {
         data = await res.json();
-        console.log('Response data:', data);
+        console.log("Response data:", data);
       } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
-        throw new Error('Invalid response from server');
+        console.error("Failed to parse response:", parseError);
+        throw new Error("Invalid response from server");
       }
 
       if (res.ok) {
-        showNotification('success', 'Pendaftaran berhasil! 🎉 Silakan cek email untuk kode verifikasi');
+        showNotification(
+          "success",
+          "Pendaftaran berhasil! 🎉 Silakan cek email untuk kode verifikasi"
+        );
 
         if (data.user && data.user.id) {
           setTimeout(() => {
-            const verifyUrl = `/verify?userId=${data.user.id}&email=${encodeURIComponent(email.toLowerCase().trim())}`;
-            console.log('Redirecting to:', verifyUrl);
+            const verifyUrl = `/verify?userId=${
+              data.user.id
+            }&email=${encodeURIComponent(email.toLowerCase().trim())}`;
+            console.log("Redirecting to:", verifyUrl);
             window.location.href = verifyUrl;
           }, 2000);
         } else {
-          console.error('User ID not found in response:', data);
-          showNotification('error', 'Pendaftaran berhasil tapi tidak dapat mengarahkan ke verifikasi. Silakan cek email Anda');
+          console.error("User ID not found in response:", data);
+          showNotification(
+            "error",
+            "Pendaftaran berhasil tapi tidak dapat mengarahkan ke verifikasi. Silakan cek email Anda"
+          );
+        }
+      } else {
+        let errorMessage = "Terjadi kesalahan saat mendaftar";
+
+        if (res.status === 409) {
+          errorMessage =
+            "Email sudah terdaftar. Silakan login atau gunakan email lain";
+        } else if (res.status === 400) {
+          errorMessage =
+            data.message || "Data tidak valid. Periksa kembali form Anda";
+        } else if (res.status === 500) {
+          errorMessage = "Terjadi kesalahan server. Silakan coba lagi";
+        } else if (data.message) {
+          errorMessage = Array.isArray(data.message)
+            ? data.message.join(", ")
+            : data.message;
         }
 
-      } else {
-        let errorMessage = 'Terjadi kesalahan saat mendaftar';
-        
-        if (res.status === 409) {
-          errorMessage = 'Email sudah terdaftar. Silakan login atau gunakan email lain';
-        } else if (res.status === 400) {
-          errorMessage = data.message || 'Data tidak valid. Periksa kembali form Anda';
-        } else if (res.status === 500) {
-          errorMessage = 'Terjadi kesalahan server. Silakan coba lagi';
-        } else if (data.message) {
-          errorMessage = Array.isArray(data.message) ? data.message.join(', ') : data.message;
-        }
-        
-        showNotification('error', errorMessage);
+        showNotification("error", errorMessage);
       }
     } catch (err) {
-      console.error('Signup error:', err);
-      
-      if (err.message === 'Failed to fetch') {
-        showNotification('error', 'Gagal terhubung ke server. Pastikan backend berjalan di http://localhost:5000');
+      console.error("Signup error:", err);
+
+      if (err.message === "Failed to fetch") {
+        showNotification(
+          "error",
+          "Gagal terhubung ke server. Pastikan backend berjalan di http://localhost:5000"
+        );
       } else {
-        showNotification('error', 'Terjadi kesalahan: ' + err.message);
+        showNotification("error", "Terjadi kesalahan: " + err.message);
       }
     } finally {
       setIsLoading(false);
@@ -161,7 +203,7 @@ function SignUp() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleSubmit(e);
     }
   };
@@ -185,25 +227,50 @@ function SignUp() {
       </div>
 
       {/* Navbar */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${
-        window.scrollY > 20 ? 'bg-white/80 backdrop-blur-xl shadow-2xl py-2' : 'bg-white/70 backdrop-blur-md py-4'
-      }`}>
+      <nav
+        className={`fixed top-0 w-full z-50 transition-all duration-500 ${
+          window.scrollY > 20
+            ? "bg-white/80 backdrop-blur-xl shadow-2xl py-2"
+            : "bg-white/70 backdrop-blur-md py-4"
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3 group cursor-pointer">
-              <div className={`relative transition-all duration-700 ${isLoaded ? 'scale-100 rotate-0' : 'scale-0 rotate-180'}`}>
+              <div
+                className={`relative transition-all duration-700 ${
+                  isLoaded ? "scale-100 rotate-0" : "scale-0 rotate-180"
+                }`}
+              >
                 <div className="absolute inset-0 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full blur-xl opacity-40 group-hover:opacity-70 transition-opacity"></div>
                 <div className="relative w-14 h-14 bg-gradient-to-br from-[#cb5094] via-[#e570b3] to-[#cb5094] rounded-full flex items-center justify-center shadow-lg group-hover:shadow-2xl transition-all duration-300 group-hover:scale-110 animate-pulse">
-                  <img src="/logo.png" alt="Medina Stuff Logo" className="w-9 h-9 object-contain relative z-10"
-                    onError={(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'block'; }} />
-                  <span className="text-2xl font-serif text-white italic font-bold relative z-10 hidden">MS</span>
+                  <img
+                    src="/logo.png"
+                    alt="Medina Stuff Logo"
+                    className="w-9 h-9 object-contain relative z-10"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextElementSibling.style.display = "block";
+                    }}
+                  />
+                  <span className="text-2xl font-serif text-white italic font-bold relative z-10 hidden">
+                    MS
+                  </span>
                 </div>
               </div>
-              <div className={`hidden sm:block transition-all duration-700 delay-100 ${isLoaded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}>
+              <div
+                className={`hidden sm:block transition-all duration-700 delay-100 ${
+                  isLoaded
+                    ? "opacity-100 translate-x-0"
+                    : "opacity-0 -translate-x-4"
+                }`}
+              >
                 <div className="text-xl font-bold bg-gradient-to-r from-[#cb5094] to-[#e570b3] bg-clip-text text-transparent">
                   MyMedina
                 </div>
-                <div className="text-xs text-gray-500 font-medium">by Medina Stuff</div>
+                <div className="text-xs text-gray-500 font-medium">
+                  by Medina Stuff
+                </div>
               </div>
             </div>
 
@@ -243,24 +310,33 @@ function SignUp() {
 
       {/* Form Sign Up */}
       <div className="relative z-10 w-full max-w-md px-4 pt-32 pb-8">
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/60 p-8 sm:p-10 transition-all duration-1000"
-          style={{ opacity: isLoaded ? 1 : 0, transform: isLoaded ? 'translateY(0)' : 'translateY(30px)' }}>
+        <div
+          className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/60 p-8 sm:p-10 transition-all duration-1000"
+          style={{
+            opacity: isLoaded ? 1 : 0,
+            transform: isLoaded ? "translateY(0)" : "translateY(30px)",
+          }}
+        >
           <div className="text-center mb-8">
-            <h1 className="text-4xl sm:text-5xl font-bold text-[#cb5094] mb-2">Hello!</h1>
-            <p className="text-gray-600 text-sm font-medium">Daftar untuk memulai</p>
+            <h1 className="text-4xl sm:text-5xl font-bold text-[#cb5094] mb-2">
+              Hello!
+            </h1>
+            <p className="text-gray-600 text-sm font-medium">
+              Daftar untuk memulai
+            </p>
           </div>
 
           <div className="space-y-5">
             <div className="relative">
               <div className="flex items-center bg-white border-2 border-gray-100 rounded-2xl px-5 py-4 shadow-sm hover:shadow-md hover:border-pink-200 transition-all duration-300 focus-within:border-[#cb5094] focus-within:ring-4 focus-within:ring-pink-100">
                 <User className="w-5 h-5 text-[#cb5094] mr-3" />
-                <input 
-                  type="text" 
-                  placeholder="Nama Lengkap" 
-                  value={name} 
+                <input
+                  type="text"
+                  placeholder="Nama Lengkap"
+                  value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
+                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium"
                 />
               </div>
             </div>
@@ -268,13 +344,13 @@ function SignUp() {
             <div className="relative">
               <div className="flex items-center bg-white border-2 border-gray-100 rounded-2xl px-5 py-4 shadow-sm hover:shadow-md hover:border-pink-200 transition-all duration-300 focus-within:border-[#cb5094] focus-within:ring-4 focus-within:ring-pink-100">
                 <Mail className="w-5 h-5 text-[#cb5094] mr-3" />
-                <input 
-                  type="email" 
-                  placeholder="Alamat Email" 
-                  value={email} 
+                <input
+                  type="email"
+                  placeholder="Alamat Email"
+                  value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
+                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium"
                 />
               </div>
             </div>
@@ -282,13 +358,13 @@ function SignUp() {
             <div className="relative">
               <div className="flex items-center bg-white border-2 border-gray-100 rounded-2xl px-5 py-4 shadow-sm hover:shadow-md hover:border-pink-200 transition-all duration-300 focus-within:border-[#cb5094] focus-within:ring-4 focus-within:ring-pink-100">
                 <Phone className="w-5 h-5 text-[#cb5094] mr-3" />
-                <input 
-                  type="tel" 
-                  placeholder="Nomor Telepon" 
-                  value={phone} 
+                <input
+                  type="tel"
+                  placeholder="Nomor Telepon"
+                  value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
+                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium"
                 />
               </div>
             </div>
@@ -296,20 +372,24 @@ function SignUp() {
             <div className="relative">
               <div className="flex items-center bg-white border-2 border-gray-100 rounded-2xl px-5 py-4 shadow-sm hover:shadow-md hover:border-pink-200 transition-all duration-300 focus-within:border-[#cb5094] focus-within:ring-4 focus-within:ring-pink-100">
                 <Lock className="w-5 h-5 text-[#cb5094] mr-3" />
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  placeholder="Buat Kata Sandi" 
-                  value={password} 
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Buat Kata Sandi"
+                  value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
+                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium"
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="hover:bg-pink-50 rounded-lg p-1.5 transition-all"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5 text-[#cb5094]" /> : <Eye className="w-5 h-5 text-[#cb5094]" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5 text-[#cb5094]" />
+                  ) : (
+                    <Eye className="w-5 h-5 text-[#cb5094]" />
+                  )}
                 </button>
               </div>
             </div>
@@ -317,20 +397,24 @@ function SignUp() {
             <div className="relative">
               <div className="flex items-center bg-white border-2 border-gray-100 rounded-2xl px-5 py-4 shadow-sm hover:shadow-md hover:border-pink-200 transition-all duration-300 focus-within:border-[#cb5094] focus-within:ring-4 focus-within:ring-pink-100">
                 <Lock className="w-5 h-5 text-[#cb5094] mr-3" />
-                <input 
-                  type={showConfirmPassword ? "text" : "password"} 
-                  placeholder="Konfirmasi Kata Sandi" 
-                  value={confirmPassword} 
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Konfirmasi Kata Sandi"
+                  value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium" 
+                  className="flex-1 outline-none text-gray-700 placeholder:text-gray-400 font-medium"
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="hover:bg-pink-50 rounded-lg p-1.5 transition-all"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5 text-[#cb5094]" /> : <Eye className="w-5 h-5 text-[#cb5094]" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-5 h-5 text-[#cb5094]" />
+                  ) : (
+                    <Eye className="w-5 h-5 text-[#cb5094]" />
+                  )}
                 </button>
               </div>
             </div>
@@ -342,18 +426,42 @@ function SignUp() {
             >
               {isLoading ? (
                 <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Membuat akun...
                 </span>
-              ) : 'DAFTAR'}
+              ) : (
+                "DAFTAR"
+              )}
             </button>
           </div>
 
           <p className="text-center text-gray-600 mt-6 text-sm font-medium">
-            Sudah punya akun? <a href="/login" className="text-[#cb5094] font-bold hover:underline transition-all">Login sekarang</a>
+            Sudah punya akun?{" "}
+            <a
+              href="/login"
+              className="text-[#cb5094] font-bold hover:underline transition-all"
+            >
+              Login sekarang
+            </a>
           </p>
         </div>
       </div>

@@ -1,15 +1,11 @@
-import { useState, useRef } from 'react';
-import { Upload, X, Image as ImageIcon, Loader2, CheckCircle } from 'lucide-react';
-import { uploadAPI } from '../utils/api';
+import { useState, useRef } from "react";
+import { Upload, Image as ImageIcon, Loader2, CheckCircle } from "lucide-react";
+import { uploadAPI } from "../utils/api";
 
-function ImageUpload({ 
-  onImageUploaded, 
-  currentImage = null, 
-  maxSize = 5 
-}) {
+function ImageUpload({ onImageUploaded, currentImage = null, maxSize = 5 }) {
   const [preview, setPreview] = useState(currentImage);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -23,12 +19,12 @@ function ImageUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setError('');
+    setError("");
     setSuccess(false);
 
     // Validasi tipe file
-    if (!file.type.startsWith('image/')) {
-      setError('File harus berupa gambar (JPG, PNG, GIF, WebP)');
+    if (!file.type.startsWith("image/")) {
+      setError("File harus berupa gambar (JPG, PNG, GIF, WebP)");
       return;
     }
 
@@ -45,44 +41,36 @@ function ImageUpload({
 
     try {
       setUploading(true);
-      
+
       // Upload ke server
       const response = await uploadAPI.uploadImage(file);
-      
+
       // Pastikan response ada url
       const uploadedUrl = response?.data?.url || response?.url;
-      
+
       if (!uploadedUrl) {
-        throw new Error('Server tidak mengembalikan URL gambar');
+        throw new Error("Server tidak mengembalikan URL gambar");
       }
 
       // Ganti preview jadi URL dari server (bukan blob lagi)
       setPreview(uploadedUrl);
       onImageUploaded?.(uploadedUrl);
-      
+
       showSuccess();
     } catch (err) {
-      console.error('Upload gagal:', err);
-      
+      console.error("Upload gagal:", err);
+
       // Kembalikan preview ke gambar lama jika gagal
       setPreview(currentImage);
-      
-      const msg = err.response?.data?.message || err.message || 'Gagal upload gambar';
+
+      const msg =
+        err.response?.data?.message || err.message || "Gagal upload gambar";
       setError(msg);
     } finally {
       setUploading(false);
       // Reset input file
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  };
-
-  const handleRemove = (e) => {
-    e.stopPropagation();
-    setPreview(null);
-    setError('');
-    setSuccess(false);
-    onImageUploaded?.(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleClick = () => {
@@ -92,15 +80,19 @@ function ImageUpload({
   return (
     <div className="space-y-4">
       <label className="block text-sm font-bold text-gray-800">
-        Gambar Produk <span className="text-red-500">*</span>
+        Tambah Gambar Produk <span className="text-red-500">*</span>
       </label>
 
       <div
         onClick={handleClick}
         className={`
           relative border-2 border-dashed rounded-2xl overflow-hidden transition-all
-          ${preview ? 'border-gray-300' : 'border-[#cb5094] bg-pink-50/30'}
-          ${uploading ? 'cursor-wait opacity-75' : 'cursor-pointer hover:shadow-lg'}
+          ${preview ? "border-gray-300" : "border-[#cb5094] bg-pink-50/30"}
+          ${
+            uploading
+              ? "cursor-wait opacity-75"
+              : "cursor-pointer hover:shadow-lg"
+          }
         `}
       >
         <input
@@ -124,23 +116,19 @@ function ImageUpload({
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <div className="text-white text-center">
                 <ImageIcon className="w-12 h-12 mx-auto mb-3" />
-                <p className="font-medium">Ganti Gambar</p>
+                <p className="font-medium">Tambah Gambar</p>
               </div>
             </div>
 
-            <button
-              onClick={handleRemove}
-              className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white p-2.5 rounded-full shadow-xl transition-all z-10"
-              title="Hapus gambar"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {/* Tombol hapus sudah DIHAPUS sesuai permintaan */}
 
             {uploading && (
               <div className="absolute inset-0 bg-white/90 flex items-center justify-center">
                 <div className="text-center">
                   <Loader2 className="w-12 h-12 text-[#cb5094] animate-spin mx-auto mb-3" />
-                  <p className="font-medium text-gray-700">Sedang mengupload...</p>
+                  <p className="font-medium text-gray-700">
+                    Sedang mengupload...
+                  </p>
                 </div>
               </div>
             )}
@@ -150,13 +138,15 @@ function ImageUpload({
             {uploading ? (
               <>
                 <Loader2 className="w-16 h-16 text-[#cb5094] animate-spin mx-auto mb-4" />
-                <p className="font-medium text-gray-700">Mengupload gambar...</p>
+                <p className="font-medium text-gray-700">
+                  Mengupload gambar...
+                </p>
               </>
             ) : (
               <>
                 <Upload className="w-16 h-16 text-[#cb5094] mx-auto mb-4" />
                 <p className="text-lg font-bold text-gray-800 mb-2">
-                  Upload Gambar Produk
+                  Tambah Gambar Produk
                 </p>
                 <p className="text-sm text-gray-600">
                   Klik di sini atau drag & drop

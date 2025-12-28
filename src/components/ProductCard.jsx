@@ -2,6 +2,7 @@ import { Heart, Star, ShoppingCart } from 'lucide-react';
 import { formatPrice, getStatusLabel, getStatusColor } from '../utils/formatPrice';
 
 function ProductCard({ product, onAddToCart, onToggleWishlist, isInWishlist = false }) {
+  
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
