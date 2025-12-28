@@ -1,9 +1,19 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, MapPin, CheckCircle, ArrowLeft, ChevronDown, ChevronUp, Package, Truck, RefreshCw } from 'lucide-react';
-import api from '../utils/api';
-import { formatPrice } from '../utils/formatPrice';
-import toast from 'react-hot-toast';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  ShoppingCart,
+  MapPin,
+  CheckCircle,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Package,
+  Truck,
+  RefreshCw,
+} from "lucide-react";
+import api from "../utils/api";
+import { formatPrice } from "../utils/formatPrice";
+import toast from "react-hot-toast";
 
 // === AREA ID TOKO DI SUKAJADI, PEKANBARU (dari hasil search API kamu) ===
 const STORE_AREA_ID = 'IDNP26IDNC346IDND4045';
