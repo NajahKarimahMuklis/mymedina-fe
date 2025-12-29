@@ -1,26 +1,24 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import {
-  Menu, X, Heart, Search, ShoppingCart, Package, LogOut, Home
-} from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import { Menu, X, ShoppingCart, Package, LogOut, Home } from "lucide-react";
 
 function CustomerDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
-  const [wishlistCount, setWishlistCount] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // State untuk popup logout
 
   const navigate = useNavigate();
   const location = useLocation();
 
   const [userData, setUserData] = useState({
-    id: '',
-    nama: 'Guest User',
-    email: 'guest@example.com',
-    nomorTelepon: '08123456789',
-    alamat: 'Belum diatur'
+    id: "",
+    nama: "Guest User",
+    email: "guest@example.com",
+    nomorTelepon: "08123456789",
+    alamat: "Belum diatur",
   });
 
   useEffect(() => {
@@ -30,8 +28,8 @@ function CustomerDashboard() {
   useEffect(() => {
     const checkAuth = () => {
       try {
-        const token = localStorage.getItem('accessToken');
-        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem("accessToken");
+        const storedUser = localStorage.getItem("user");
 
         if (!token || !storedUser) {
           setIsLoading(false);
@@ -39,28 +37,24 @@ function CustomerDashboard() {
         }
 
         const user = JSON.parse(storedUser);
-        const role = (user.role || '').toString().trim().toUpperCase();
+        const role = (user.role || "").toString().trim().toUpperCase();
 
-        if (role === 'ADMIN') {
+        if (role === "ADMIN") {
           setIsLoading(false);
           return;
         }
 
         const updatedUser = {
-          id: user.id || '',
-          nama: user.nama || 'User',
-          email: user.email || 'user@example.com',
-          nomorTelepon: user.nomorTelepon || user.phone || '08123456789',
-          alamat: user.alamat || 'Belum diatur'
+          id: user.id || "",
+          nama: user.nama || "User",
+          email: user.email || "user@example.com",
+          nomorTelepon: user.nomorTelepon || user.phone || "08123456789",
+          alamat: user.alamat || "Belum diatur",
         };
 
         setUserData(updatedUser);
-
-        if (location.pathname === '/customer' || location.pathname === '/customer/') {
-          // Don't navigate, just set loading false
-        }
       } catch (err) {
-        console.error('Error parsing user:', err);
+        console.error("Error parsing user:", err);
       } finally {
         setIsLoading(false);
       }
@@ -71,35 +65,51 @@ function CustomerDashboard() {
 
   useEffect(() => {
     const updateCounts = () => {
-      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-      const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
       setCartCount(cart.reduce((sum, item) => sum + (item.quantity || 0), 0));
-      setWishlistCount(wishlist.length);
     };
 
     updateCounts();
 
-    window.addEventListener('storage', updateCounts);
-    return () => window.removeEventListener('storage', updateCounts);
+    window.addEventListener("storage", updateCounts);
+    return () => window.removeEventListener("storage", updateCounts);
   }, []);
 
+  // Fungsi logout dengan konfirmasi
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     try {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-      window.location.href = '/';
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("cart"); // optional: bersihkan cart
+      window.location.href = "/";
     } catch (err) {
-      console.error('Logout error:', err);
+      console.error("Logout error:", err);
     }
   };
 
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false);
+  };
+
   const getInitials = (name) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const isActiveRoute = (path) => {
-    if (path === '/customer/products') {
-      return location.pathname === '/customer/products' || location.pathname === '/customer';
+    if (path === "/customer/products") {
+      return (
+        location.pathname === "/customer/products" ||
+        location.pathname === "/customer"
+      );
     }
     return location.pathname === path;
   };
@@ -116,13 +126,12 @@ function CustomerDashboard() {
   }
 
   const menuItems = [
-    { path: '/customer/products', icon: Home, label: 'Beranda' },
-    { path: '/customer/orders', icon: Package, label: 'Pesanan' },
-    { path: '/customer/wishlist', icon: Heart, label: 'Wishlist', badge: wishlistCount },
+    { path: "/customer/products", icon: Home, label: "Beranda" },
+    { path: "/customer/orders", icon: Package, label: "Pesanan" },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 relative">
       {/* Navbar Fixed */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -133,18 +142,25 @@ function CustomerDashboard() {
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 className="lg:hidden p-2 hover:bg-pink-50 rounded-lg transition"
               >
-                {isSidebarOpen ? <X className="w-6 h-6 text-[#cb5094]" /> : <Menu className="w-6 h-6 text-[#cb5094]" />}
+                {isSidebarOpen ? (
+                  <X className="w-6 h-6 text-[#cb5094]" />
+                ) : (
+                  <Menu className="w-6 h-6 text-[#cb5094]" />
+                )}
               </button>
 
-              <a href="/customer/products" className="flex items-center space-x-3">
+              <a
+                href="/customer/products"
+                className="flex items-center space-x-3"
+              >
                 <div className="relative w-10 h-10 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-md overflow-hidden">
                   <img
                     src="/logo.png"
                     alt="MyMedina"
                     className="w-7 h-7 object-contain z-10"
                     onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextElementSibling.style.display = 'flex';
+                      e.target.style.display = "none";
+                      e.target.nextElementSibling.style.display = "flex";
                     }}
                   />
                   <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white z-10 hidden">
@@ -152,7 +168,9 @@ function CustomerDashboard() {
                   </span>
                 </div>
                 <div className="hidden sm:block">
-                  <div className="text-base font-bold text-gray-800">MyMedina</div>
+                  <div className="text-base font-bold text-gray-800">
+                    MyMedina
+                  </div>
                   <div className="text-xs text-gray-500">by Medina Stuff</div>
                 </div>
               </a>
@@ -161,7 +179,7 @@ function CustomerDashboard() {
             {/* Cart & Profile */}
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate('/customer/cart')}
+                onClick={() => navigate("/customer/cart")}
                 className="relative p-2 hover:bg-pink-50 rounded-full transition"
               >
                 <ShoppingCart className="w-6 h-6 text-gray-700" />
@@ -173,14 +191,18 @@ function CustomerDashboard() {
               </button>
 
               <button
-                onClick={() => navigate('/customer/profile')}
+                onClick={() => navigate("/customer/profile")}
                 className="hidden sm:flex items-center space-x-3 hover:bg-pink-50 rounded-xl p-2 transition-all duration-200"
               >
                 <div className="w-10 h-10 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-md">
-                  <span className="text-sm font-bold text-white">{getInitials(userData.nama)}</span>
+                  <span className="text-sm font-bold text-white">
+                    {getInitials(userData.nama)}
+                  </span>
                 </div>
                 <div className="text-left">
-                  <div className="text-sm font-bold text-gray-800">{userData.nama}</div>
+                  <div className="text-sm font-bold text-gray-800">
+                    {userData.nama}
+                  </div>
                 </div>
               </button>
             </div>
@@ -189,33 +211,26 @@ function CustomerDashboard() {
       </nav>
 
       <div className="pt-16 min-h-screen pb-20 lg:pb-0 flex">
-        {/* Sidebar Desktop - Menu lengkap */}
+        {/* Sidebar Desktop */}
         <aside className="hidden lg:block fixed top-16 left-0 z-40 w-64 bg-white shadow-2xl h-[calc(100vh-4rem)]">
           <div className="h-full flex flex-col overflow-y-auto">
             <nav className="flex-1 p-6 space-y-2">
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = isActiveRoute(item.path);
-                
+
                 return (
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
                     className={`w-full flex items-center space-x-3 px-5 py-4 rounded-2xl transition-all duration-200 font-medium ${
                       isActive
-                        ? 'bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg'
-                        : 'text-gray-700 hover:bg-pink-50'
+                        ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
+                        : "text-gray-700 hover:bg-pink-50"
                     }`}
                   >
                     <Icon className="w-5 h-5" />
                     <span className="flex-1 text-left">{item.label}</span>
-                    {item.badge > 0 && (
-                      <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                        isActive ? 'bg-white text-[#cb5094]' : 'bg-[#cb5094] text-white'
-                      }`}>
-                        {item.badge}
-                      </span>
-                    )}
                   </button>
                 );
               })}
@@ -235,15 +250,14 @@ function CustomerDashboard() {
         </aside>
 
         {/* Menu Hamburger Mobile - Hanya Logout */}
-        <aside className={`lg:hidden fixed top-16 left-0 z-40 w-64 bg-white shadow-2xl transform transition-transform duration-300 h-auto ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
+        <aside
+          className={`lg:hidden fixed top-16 left-0 z-40 w-64 bg-white shadow-2xl transform transition-transform duration-300 h-auto ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
           <div className="p-6">
             <button
-              onClick={() => {
-                handleLogout();
-                setIsSidebarOpen(false);
-              }}
+              onClick={handleLogout}
               className="w-full flex items-center space-x-3 px-5 py-4 rounded-2xl text-red-600 hover:bg-red-50 transition-all duration-200 font-medium"
             >
               <LogOut className="w-5 h-5" />
@@ -254,37 +268,35 @@ function CustomerDashboard() {
 
         {/* Overlay Sidebar Mobile */}
         {isSidebarOpen && (
-          <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+          <div
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
         )}
 
         {/* Main Content */}
         <main className="flex-1 lg:ml-64">
-          <Outlet context={{ searchQuery, userData, setCartCount, setWishlistCount }} />
+          <Outlet context={{ searchQuery, userData, setCartCount }} />
         </main>
-              </div>
+      </div>
 
       {/* Bottom Navigation Mobile */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl lg:hidden z-50">
-        <div className="grid grid-cols-4 h-16">
+        <div className="grid grid-cols-3 h-16">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = isActiveRoute(item.path);
-            
+
             return (
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={`flex flex-col items-center justify-center space-y-1 relative transition-all duration-200 ${
-                  isActive ? 'text-[#cb5094]' : 'text-gray-600'
+                  isActive ? "text-[#cb5094]" : "text-gray-600"
                 }`}
               >
                 <div className="relative">
                   <Icon className="w-6 h-6" />
-                  {item.badge > 0 && (
-                    <span className="absolute -top-2 -right-2 w-4 h-4 bg-[#cb5094] text-white text-[10px] rounded-full flex items-center justify-center font-bold">
-                      {item.badge}
-                    </span>
-                  )}
                 </div>
                 <span className="text-[10px] font-medium">{item.label}</span>
                 {isActive && (
@@ -295,21 +307,66 @@ function CustomerDashboard() {
           })}
 
           <button
-            onClick={() => navigate('/customer/profile')}
+            onClick={() => navigate("/customer/profile")}
             className={`flex flex-col items-center justify-center space-y-1 relative transition-all duration-200 ${
-              isActiveRoute('/customer/profile') ? 'text-[#cb5094]' : 'text-gray-600'
+              isActiveRoute("/customer/profile")
+                ? "text-[#cb5094]"
+                : "text-gray-600"
             }`}
           >
             <div className="w-6 h-6 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center">
-              <span className="text-[10px] font-bold text-white">{getInitials(userData.nama)}</span>
+              <span className="text-[10px] font-bold text-white">
+                {getInitials(userData.nama)}
+              </span>
             </div>
             <span className="text-[10px] font-medium">Profil</span>
-            {isActiveRoute('/customer/profile') && (
+            {isActiveRoute("/customer/profile") && (
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gradient-to-r from-[#cb5094] to-[#e570b3] rounded-b-full"></div>
             )}
           </button>
         </div>
       </nav>
+
+      {/* Popup Konfirmasi Logout */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Background Blur */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={cancelLogout}
+          />
+
+          {/* Popup Card */}
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 animate-in fade-in zoom-in duration-300">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg">
+                <LogOut className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Yakin ingin keluar?
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Anda akan kembali ke halaman utama dan sesi login akan berakhir.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={cancelLogout}
+                className="flex-1 py-3.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 py-3.5 rounded-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] hover:from-[#b44682] hover:to-[#c54e96] text-white font-bold shadow-lg hover:shadow-xl transition-all"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

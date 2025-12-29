@@ -38,9 +38,10 @@ function CustomerProducts() {
   const statusDropdownRef = useRef(null);
 
   const PRODUCTS_CACHE_KEY = "cached_products_v5";
-  const CACHE_DURATION = 2 * 60 * 1000;
-  const POLLING_INTERVAL = 10 * 1000;
+  const CACHE_DURATION = 2 * 60 * 1000; // 2 menit
+  const POLLING_INTERVAL = 10 * 1000; // 10 detik
 
+  // Update cart count saat mount
   useLayoutEffect(() => {
     const cart = JSON.parse(localStorage.getItem("cart") || "[]");
     setCartCount(cart.length);
@@ -76,6 +77,7 @@ function CustomerProducts() {
       ];
       setCategories(uniqueCategories);
 
+      // Simpan ke localStorage
       localStorage.setItem(
         PRODUCTS_CACHE_KEY,
         JSON.stringify({
@@ -112,6 +114,7 @@ function CustomerProducts() {
     }
   };
 
+  // Load produk pertama kali (dengan cache)
   useEffect(() => {
     const fetchProducts = async () => {
       const cached = localStorage.getItem(PRODUCTS_CACHE_KEY);
@@ -126,7 +129,7 @@ function CustomerProducts() {
             setProducts(data);
             setCategories(cachedCategories);
             setLoading(false);
-            syncProducts(false);
+            syncProducts(false); // update di background
             return;
           }
         } catch (e) {
@@ -148,6 +151,7 @@ function CustomerProducts() {
     fetchProducts();
   }, []);
 
+  // Polling setiap 10 detik setelah loading selesai
   useEffect(() => {
     if (!loading) {
       pollingIntervalRef.current = setInterval(() => {
@@ -162,6 +166,7 @@ function CustomerProducts() {
     };
   }, [loading]);
 
+  // Sync saat tab menjadi aktif kembali
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && !loading) {
@@ -174,11 +179,13 @@ function CustomerProducts() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [loading]);
 
+  // Update cart count saat ada perubahan cart
   useEffect(() => {
     const cart = JSON.parse(localStorage.getItem("cart") || "[]");
     setCartCount(cart.length);
   }, [setCartCount]);
 
+  // Click outside untuk tutup dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -222,12 +229,12 @@ function CustomerProducts() {
     }
   };
 
-  const clearAllFilters = () => {
-    setTempSelectedCategories([]);
-    setAppliedCategories([]);
-    setSelectedStatus("all");
+  // Fungsi untuk hapus satu kategori dari applied
+  const removeCategory = (category) => {
+    setAppliedCategories(appliedCategories.filter((c) => c !== category));
   };
 
+  // Sync temp dengan applied saat modal dibuka
   useEffect(() => {
     if (showCategoryModal) {
       setTempSelectedCategories(appliedCategories);
@@ -238,19 +245,20 @@ function CustomerProducts() {
 
   const filteredProducts = products
     .filter((p) => {
+      // Search: harus dimulai dengan query (seperti aslinya)
       if (combinedSearchQuery) {
         const query = combinedSearchQuery.toLowerCase().trim();
         const nama = (p.nama || "").toLowerCase().trim();
         if (!nama.startsWith(query)) return false;
       }
 
+      // Filter kategori (multi)
       if (appliedCategories.length > 0) {
         if (!appliedCategories.includes(p.category?.nama)) return false;
       }
 
-      if (selectedStatus !== "all") {
-        if (p.status !== selectedStatus) return false;
-      }
+      // Filter status
+      if (selectedStatus !== "all" && p.status !== selectedStatus) return false;
 
       return true;
     })
@@ -281,9 +289,10 @@ function CustomerProducts() {
   ];
 
   const getProductImages = (product) => {
-    return product.gambarUrl?.split("|||").filter((url) => url) || [];
+    return product.gambarUrl?.split("|||").filter((url) => url.trim()) || [];
   };
 
+  // Loading skeleton
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#faf8f3] via-white to-[#f9f6f0]">
@@ -361,19 +370,20 @@ function CustomerProducts() {
         </div>
       </section>
 
-      {/* Filter Bar */}
+      {/* Filter Bar + Active Categories di Bawah */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-6 sm:py-8">
-        <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
-          {/* Left side - Filter button and active categories */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
+        <div className="mb-8">
+          {/* Bar utama: Tombol Kategori + Dropdown Status/Sort/View */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            {/* Tombol Kategori */}
             <button
               onClick={() => setShowCategoryModal(true)}
-              className="flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105 text-xs sm:text-sm tracking-wide"
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105 tracking-wide"
             >
-              <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Filter className="w-4 h-4" />
               <span>Kategori</span>
               {appliedCategories.length > 0 && (
-                <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/30 rounded-full flex items-center justify-center">
+                <div className="w-6 h-6 bg-white/30 rounded-full flex items-center justify-center">
                   <span className="text-xs font-bold">
                     {appliedCategories.length}
                   </span>
@@ -381,162 +391,142 @@ function CustomerProducts() {
               )}
             </button>
 
-            {appliedCategories.length > 0 && (
-              <>
-                {appliedCategories.map((category) => (
-                  <div
-                    key={category}
-                    className="hidden sm:flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-white/80 backdrop-blur-md border-2 border-[#cb5094]/30 rounded-full shadow-md"
-                  >
-                    <span className="text-xs sm:text-sm font-semibold text-[#cb5094] tracking-wide">
-                      {category}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setAppliedCategories(
-                          appliedCategories.filter((c) => c !== category)
-                        );
-                      }}
-                      className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center hover:bg-[#cb5094]/10 rounded-full transition-all"
-                    >
-                      <X className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#cb5094]" />
-                    </button>
-                  </div>
-                ))}
+            {/* Right side: Status, Sort, View Mode */}
+            <div className="flex items-center gap-4">
+              {/* Status Dropdown */}
+              <div className="relative" ref={statusDropdownRef}>
                 <button
-                  onClick={clearAllFilters}
-                  className="hidden sm:block text-xs sm:text-sm font-semibold text-[#cb5094] hover:text-[#d85fa8] px-3 sm:px-5 py-2 sm:py-2.5 bg-white/60 hover:bg-white/80 backdrop-blur-md rounded-full transition-all shadow-md tracking-wide"
+                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                  className="flex items-center gap-3 px-6 py-3 bg-white/80 backdrop-blur-md border-2 border-[#cb5094]/20 rounded-full font-semibold text-gray-700 hover:border-[#cb5094]/40 hover:bg-white transition-all shadow-md"
                 >
-                  Hapus Semua
+                  <span>
+                    {statusOptions.find((opt) => opt.value === selectedStatus)
+                      ?.label || "Semua Status"}
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${
+                      showStatusDropdown ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
-              </>
-            )}
+
+                {showStatusDropdown && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border-2 border-[#cb5094]/10 overflow-hidden z-50">
+                    {statusOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          setSelectedStatus(option.value);
+                          setShowStatusDropdown(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-6 py-4 text-left transition-all ${
+                          selectedStatus === option.value
+                            ? "bg-gradient-to-r from-[#fef5fb] to-[#fff8f0] text-[#cb5094] font-bold"
+                            : "text-gray-700 hover:bg-gradient-to-r hover:from-[#fef5fb]/50 hover:to-[#fff8f0]/50"
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        {selectedStatus === option.value && (
+                          <Check className="w-5 h-5 text-[#cb5094]" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Sort Dropdown */}
+              <div className="relative" ref={sortDropdownRef}>
+                <button
+                  onClick={() => setShowSortDropdown(!showSortDropdown)}
+                  className="flex items-center gap-3 px-6 py-3 bg-white/80 backdrop-blur-md border-2 border-[#cb5094]/20 rounded-full font-semibold text-gray-700 hover:border-[#cb5094]/40 hover:bg-white transition-all shadow-md"
+                >
+                  <span>
+                    {sortOptions.find((opt) => opt.value === sortBy)?.label ||
+                      "Terbaru"}
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${
+                      showSortDropdown ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {showSortDropdown && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border-2 border-[#cb5094]/10 overflow-hidden z-50">
+                    {sortOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          setSortBy(option.value);
+                          setShowSortDropdown(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-6 py-4 text-left transition-all ${
+                          sortBy === option.value
+                            ? "bg-gradient-to-r from-[#fef5fb] to-[#fff8f0] text-[#cb5094] font-bold"
+                            : "text-gray-700 hover:bg-gradient-to-r hover:from-[#fef5fb]/50 hover:to-[#fff8f0]/50"
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        {sortBy === option.value && (
+                          <Check className="w-5 h-5 text-[#cb5094]" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex gap-2 bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-md border-2 border-[#cb5094]/10">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2.5 rounded-full transition-all ${
+                    viewMode === "grid"
+                      ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <Grid className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-2.5 rounded-full transition-all ${
+                    viewMode === "list"
+                      ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <List className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Right side - Sort and view mode */}
-          <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-            {/* Status Dropdown */}
-            <div
-              className="relative flex-1 sm:flex-initial"
-              ref={statusDropdownRef}
-            >
-              <button
-                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 sm:gap-3 px-4 sm:px-6 py-2.5 sm:py-3 bg-white/80 backdrop-blur-md border-2 border-[#cb5094]/20 rounded-full font-semibold text-gray-700 hover:border-[#cb5094]/40 hover:bg-white transition-all shadow-md tracking-wide text-xs sm:text-sm whitespace-nowrap"
-              >
-                <span>
-                  {
-                    statusOptions.find((opt) => opt.value === selectedStatus)
-                      ?.label
-                  }
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${
-                    showStatusDropdown ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {showStatusDropdown && (
-                <div className="absolute right-0 mt-2 w-full sm:w-56 bg-white rounded-2xl shadow-2xl border-2 border-[#cb5094]/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {statusOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setSelectedStatus(option.value);
-                        setShowStatusDropdown(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 text-left transition-all ${
-                        selectedStatus === option.value
-                          ? "bg-gradient-to-r from-[#fef5fb] to-[#fff8f0] text-[#cb5094] font-bold"
-                          : "text-gray-700 hover:bg-gradient-to-r hover:from-[#fef5fb]/50 hover:to-[#fff8f0]/50 font-medium"
-                      }`}
-                    >
-                      <span className="tracking-wide text-sm">
-                        {option.label}
-                      </span>
-                      {selectedStatus === option.value && (
-                        <Check className="w-4 h-4 sm:w-5 sm:h-5 text-[#cb5094]" />
-                      )}
-                    </button>
-                  ))}
+          {/* Active Categories - DITURUNKAN KE BAWAH dengan font kecil */}
+          {appliedCategories.length > 0 && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {appliedCategories.map((category) => (
+                <div
+                  key={category}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 backdrop-blur-md border border-[#cb5094]/30 rounded-full shadow-sm"
+                >
+                  <span className="text-xs font-medium text-[#cb5094]">
+                    {category}
+                  </span>
+                  <button
+                    onClick={() => removeCategory(category)}
+                    className="w-4 h-4 flex items-center justify-center hover:bg-[#cb5094]/10 rounded-full transition-all"
+                  >
+                    <X className="w-2.5 h-2.5 text-[#cb5094]" />
+                  </button>
                 </div>
-              )}
+              ))}
             </div>
-
-            {/* Sort Dropdown */}
-            <div
-              className="relative flex-1 sm:flex-initial"
-              ref={sortDropdownRef}
-            >
-              <button
-                onClick={() => setShowSortDropdown(!showSortDropdown)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 sm:gap-3 px-4 sm:px-6 py-2.5 sm:py-3 bg-white/80 backdrop-blur-md border-2 border-[#cb5094]/20 rounded-full font-semibold text-gray-700 hover:border-[#cb5094]/40 hover:bg-white transition-all shadow-md tracking-wide text-xs sm:text-sm whitespace-nowrap"
-              >
-                <span>
-                  {sortOptions.find((opt) => opt.value === sortBy)?.label}
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${
-                    showSortDropdown ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {showSortDropdown && (
-                <div className="absolute right-0 mt-2 w-full sm:w-56 bg-white rounded-2xl shadow-2xl border-2 border-[#cb5094]/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {sortOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setSortBy(option.value);
-                        setShowSortDropdown(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 text-left transition-all ${
-                        sortBy === option.value
-                          ? "bg-gradient-to-r from-[#fef5fb] to-[#fff8f0] text-[#cb5094] font-bold"
-                          : "text-gray-700 hover:bg-gradient-to-r hover:from-[#fef5fb]/50 hover:to-[#fff8f0]/50 font-medium"
-                      }`}
-                    >
-                      <span className="tracking-wide text-sm">
-                        {option.label}
-                      </span>
-                      {sortBy === option.value && (
-                        <Check className="w-4 h-4 sm:w-5 sm:h-5 text-[#cb5094]" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex gap-1.5 sm:gap-2 bg-white/80 backdrop-blur-md p-1 sm:p-1.5 rounded-full shadow-md border-2 border-[#cb5094]/10 flex-shrink-0">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2 sm:p-2.5 rounded-full transition-all ${
-                  viewMode === "grid"
-                    ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                <Grid className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 sm:p-2.5 rounded-full transition-all ${
-                  viewMode === "list"
-                    ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                <List className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Products Grid/List */}
+        {/* Produk Grid / List */}
         {filteredProducts.length === 0 ? (
           <div className="text-center py-20">
             <Package className="w-20 h-20 text-gray-300 mx-auto mb-4" />
@@ -650,20 +640,9 @@ function CustomerProducts() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl">
             <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-bold text-[#cb5094] tracking-tight">
-                  Filter Kategori
-                </h3>
-                {appliedCategories.length > 0 && (
-                  <button
-                    onClick={clearAllFilters}
-                    className="mt-1.5 text-xs text-[#cb5094] hover:text-[#d85fa8] font-semibold transition-colors flex items-center gap-1 tracking-wide"
-                  >
-                    <X className="w-3 h-3" />
-                    Hapus semua
-                  </button>
-                )}
-              </div>
+              <h3 className="text-2xl font-bold text-[#cb5094] tracking-tight">
+                Filter Kategori
+              </h3>
               <button
                 onClick={() => setShowCategoryModal(false)}
                 className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full transition-all"

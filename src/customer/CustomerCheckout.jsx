@@ -11,6 +11,9 @@ import {
   Truck,
   RefreshCw,
   X,
+  Home,
+  Plus,
+  Search,
 } from "lucide-react";
 import api from "../utils/api";
 import { formatPrice } from "../utils/formatPrice";
@@ -29,6 +32,11 @@ function CustomerCheckout() {
   const [showItemDetails, setShowItemDetails] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+  // === MODE ALAMAT: saved atau manual ===
+  const [addressMode, setAddressMode] = useState("manual"); // 'saved' atau 'manual'
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+
   const [shippingForm, setShippingForm] = useState({
     namaPenerima: "",
     teleponPenerima: "",
@@ -38,7 +46,7 @@ function CustomerCheckout() {
     kota: "",
     provinsi: "",
     kodePos: "",
-    lokasiLengkap: "", // Untuk tampilan lengkap seperti di dropdown
+    lokasiLengkap: "",
   });
 
   const [tipe, setTipe] = useState("READY");
@@ -58,6 +66,7 @@ function CustomerCheckout() {
   useEffect(() => {
     loadCart();
     loadUserProfile();
+    loadSavedAddresses();
   }, []);
 
   useEffect(() => {
@@ -69,16 +78,13 @@ function CustomerCheckout() {
       setSearchResults([]);
       return;
     }
-
     if (selectedArea && searchQuery === selectedArea.cleanName) {
       setSearchResults([]);
       return;
     }
-
     const timer = setTimeout(() => {
       fetchAreas(searchQuery);
     }, 500);
-
     return () => clearTimeout(timer);
   }, [searchQuery, selectedArea]);
 
@@ -97,9 +103,63 @@ function CustomerCheckout() {
         namaPenerima: user.nama || "",
         teleponPenerima: user.nomorTelepon || user.phone || "",
         emailPenerima: user.email || "",
-        alamatBaris1: user.alamat || "",
       }));
     }
+  };
+
+  const loadSavedAddresses = () => {
+    const stored = sessionStorage.getItem("addresses");
+    if (stored) {
+      const addresses = JSON.parse(stored);
+      setSavedAddresses(addresses);
+
+      // Jika ada alamat default, otomatis gunakan
+      const defaultAddr = addresses.find((a) => a.isDefault);
+      if (defaultAddr) {
+        fillFormFromAddress(defaultAddr);
+        setAddressMode("saved");
+      }
+    }
+  };
+
+  const fillFormFromAddress = (addr) => {
+    setShippingForm({
+      namaPenerima: addr.namaPenerima || "",
+      teleponPenerima: addr.teleponPenerima || "",
+      emailPenerima: addr.emailPenerima || "",
+      alamatBaris1: addr.alamatBaris1 || "",
+      alamatBaris2: addr.alamatBaris2 || "",
+      kota: addr.kota || "",
+      provinsi: addr.provinsi || "",
+      kodePos: addr.kodePos || "",
+      lokasiLengkap: `${addr.kota}, ${addr.provinsi}`,
+    });
+
+    setSelectedArea({
+      cleanName: `${addr.kota}, ${addr.provinsi}`,
+      administrative_division_level_2_name: addr.kota,
+      administrative_division_level_1_name: addr.provinsi,
+      postal_codes: addr.kodePos ? [addr.kodePos] : [],
+    });
+
+    setSearchQuery(`${addr.kota}, ${addr.provinsi}`);
+  };
+
+  const switchToManual = () => {
+    setAddressMode("manual");
+    loadUserProfile(); // isi nama, telp, email dari profil
+    setShippingForm((prev) => ({
+      ...prev,
+      alamatBaris1: "",
+      alamatBaris2: "",
+      kota: "",
+      provinsi: "",
+      kodePos: "",
+      lokasiLengkap: "",
+    }));
+    setSelectedArea(null);
+    setSearchQuery("");
+    toast.success("Mode input manual aktif");
   };
 
   const fetchAreas = async (query) => {
@@ -152,7 +212,7 @@ function CustomerCheckout() {
       ...prev,
       provinsi: area.administrative_division_level_1_name || "",
       kota: area.administrative_division_level_2_name || area.name,
-      lokasiLengkap: cleanName, // Simpan nama lengkap untuk tampilan
+      lokasiLengkap: cleanName,
       kodePos: "",
     }));
 
@@ -160,11 +220,7 @@ function CustomerCheckout() {
     setSearchResults([]);
   };
 
-  // Perubahan utama: Handle Pemilihan Ekspedisi
-  
-
   const fetchShippingRates = async () => {
-    // Validasi minimal supaya request tidak ngaco
     if (!/^\d{5}$/.test(shippingForm.kodePos)) {
       toast.error("Kode pos harus 5 digit angka");
       return;
@@ -192,9 +248,9 @@ function CustomerCheckout() {
       });
 
       const payload = {
-        origin_postal_code: Number(STORE_POSTAL_CODE), // 28124
-        destination_postal_code: Number(shippingForm.kodePos), // contoh 50245
-        couriers: "jne,jnt,sicepat,anteraja", // tambah "pos" kalau mau
+        origin_postal_code: Number(STORE_POSTAL_CODE),
+        destination_postal_code: Number(shippingForm.kodePos),
+        couriers: "jne,jnt,sicepat,anteraja",
         items,
       };
 
@@ -212,7 +268,7 @@ function CustomerCheckout() {
       try {
         data = JSON.parse(responseText);
       } catch {
-        console.error("❌ Invalid JSON response:", responseText);
+        console.error("Invalid JSON response:", responseText);
         throw new Error("Invalid JSON response from server");
       }
 
@@ -228,12 +284,12 @@ function CustomerCheckout() {
       else if (Array.isArray(data?.data)) pricingData = data.data;
       else if (Array.isArray(data)) pricingData = data;
 
-  const validRates = pricingData
-    .filter((rate) => Number(rate.price) > 0)
-    .map((rate, index) => ({
-      ...rate,
-      uniqueId: `${rate.courier_company}-${rate.courier_code}-${rate.courier_service_code}-${index}`, // ✅ ID unik
-    }));
+      const validRates = pricingData
+        .filter((rate) => Number(rate.price) > 0)
+        .map((rate, index) => ({
+          ...rate,
+          uniqueId: `${rate.courier_company}-${rate.courier_code}-${rate.courier_service_code}-${index}`,
+        }));
 
       if (validRates.length > 0) {
         validRates.sort((a, b) => a.price - b.price);
@@ -247,7 +303,6 @@ function CustomerCheckout() {
       console.error("Error fetching rates:", error);
       toast.error(`Tidak dapat memuat ongkir: ${error.message}`);
 
-      // fallback tetap boleh dipakai jika API gagal
       const totalBerat = cart.reduce((sum, item) => {
         const weight = Number(item.weight || item.berat || 500);
         const qty = Number(item.quantity || 1);
@@ -356,6 +411,11 @@ function CustomerCheckout() {
         kodePos: String(shippingForm.kodePos).padStart(5, "0"),
       };
 
+      // TAMBAHKAN: Cek apakah ada emailPenerima yang required
+      if (shippingForm.emailPenerima) {
+        alamatPengiriman.emailPenerima = shippingForm.emailPenerima;
+      }
+
       const orderData = {
         items,
         alamatPengiriman,
@@ -364,11 +424,31 @@ function CustomerCheckout() {
         catatan: catatan || "",
       };
 
+      // DEBUG LOG - Lihat apa yang dikirim
+      console.log(
+        "📦 Creating order with data:",
+        JSON.stringify(orderData, null, 2)
+      );
+      console.log("📋 Items:", items);
+      console.log("📍 Alamat Pengiriman:", alamatPengiriman);
+      console.log("🚚 Ongkir:", selectedCourier);
+
       const response = await api.post("/orders", orderData);
-      const order = response.data.order;
+
+      console.log("✅ Order created response:", response.data);
+
+      const order = response.data.order || response.data;
+      const orderId = order.id;
+
+      console.log("🆔 Order ID for payment:", orderId);
+
+      if (!orderId) {
+        throw new Error("Order ID tidak ditemukan dalam response");
+      }
 
       toast.success("Pesanan berhasil dibuat!");
 
+      // Clear cart
       const fullCart = JSON.parse(localStorage.getItem("cart") || "[]");
       const remainingCart = fullCart.filter(
         (cartItem) =>
@@ -382,14 +462,61 @@ function CustomerCheckout() {
       localStorage.setItem("cart", JSON.stringify(remainingCart));
       localStorage.removeItem("checkoutItems");
       window.dispatchEvent(new Event("cartUpdated"));
-
       localStorage.removeItem("checkoutStep");
 
-      navigate(`/customer/payment/${order.id}`);
+      setTimeout(() => {
+        navigate(`/customer/payment/${orderId}`, {
+          state: {
+            order: order,
+            fromCheckout: true,
+          },
+        });
+      }, 500);
     } catch (error) {
-      console.error("Error creating order:", error);
-      const msg = error.response?.data?.message || "Gagal membuat pesanan";
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg);
+      console.error("❌ Error creating order:", error);
+      console.error("❌ Error response:", error.response);
+      console.error("❌ Error data:", error.response?.data);
+      console.error("❌ Error status:", error.response?.status);
+      console.error("❌ Error message:", error.message);
+
+      // Tampilkan error yang lebih detail
+      let errorMessage = "Gagal membuat pesanan";
+
+      if (error.response?.data?.message) {
+        const msg = error.response.data.message;
+        if (Array.isArray(msg)) {
+          errorMessage = msg.join(", ");
+          console.error("❌ Validation errors:", msg);
+        } else {
+          errorMessage = msg;
+        }
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      // Cek apakah ada field yang missing
+      if (
+        errorMessage.includes("should not be empty") ||
+        errorMessage.includes("must be") ||
+        errorMessage.includes("required")
+      ) {
+        console.error(
+          "❌ VALIDATION ERROR - Kemungkinan ada field yang missing atau format salah"
+        );
+        console.error("📋 Data yang dikirim:", {
+          items,
+          alamatPengiriman,
+          tipe,
+          ongkosKirim: selectedCourier.price,
+          catatan,
+        });
+      }
+
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }
@@ -405,7 +532,7 @@ function CustomerCheckout() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-white to-pink-50/20 pb-24 lg:pb-8">
-      {/* Modal Konfirmasi */}
+      {/* Modal Konfirmasi Pesanan */}
       {showConfirmModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
@@ -432,7 +559,7 @@ function CustomerCheckout() {
               <div className="space-y-3">
                 <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-[#cb5094]">
                   <p className="text-xs font-bold text-gray-500 mb-2">
-                    📦 INFORMASI PENERIMA
+                    INFORMASI PENERIMA
                   </p>
                   <div className="space-y-2">
                     <div>
@@ -458,7 +585,7 @@ function CustomerCheckout() {
 
                 <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-[#cb5094]">
                   <p className="text-xs font-bold text-gray-500 mb-2">
-                    📍 ALAMAT PENGIRIMAN
+                    ALAMAT PENGIRIMAN
                   </p>
                   <div className="space-y-2">
                     <div>
@@ -485,7 +612,7 @@ function CustomerCheckout() {
 
                 <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-[#cb5094]">
                   <p className="text-xs font-bold text-gray-500 mb-2">
-                    🚚 PENGIRIMAN
+                    PENGIRIMAN
                   </p>
                   <div className="flex items-center justify-between">
                     <div>
@@ -537,7 +664,7 @@ function CustomerCheckout() {
                 {catatan && (
                   <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
                     <p className="text-xs font-bold text-yellow-800 mb-1">
-                      📝 Catatan
+                      Catatan
                     </p>
                     <p className="text-sm text-yellow-900">{catatan}</p>
                   </div>
@@ -567,6 +694,87 @@ function CustomerCheckout() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pilih Alamat Tersimpan */}
+      {showAddressModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white p-5 rounded-t-2xl flex items-center justify-between">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Home className="w-5 h-5" />
+                Pilih Alamat Tersimpan
+              </h3>
+              <button
+                onClick={() => setShowAddressModal(false)}
+                className="p-1 hover:bg-white/20 rounded transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              {savedAddresses.length === 0 ? (
+                <div className="text-center py-10">
+                  <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">Belum ada alamat tersimpan</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Tambahkan alamat di halaman Profil terlebih dahulu.
+                  </p>
+                </div>
+              ) : (
+                savedAddresses.map((addr) => (
+                  <button
+                    key={addr.id}
+                    onClick={() => {
+                      fillFormFromAddress(addr);
+                      setAddressMode("saved");
+                      setShowAddressModal(false);
+                      toast.success("Alamat berhasil dipilih!");
+                    }}
+                    className="w-full text-left p-4 border-2 border-gray-200 rounded-xl hover:border-[#cb5094] hover:bg-pink-50 transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {addr.label && (
+                          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded">
+                            {addr.label}
+                          </span>
+                        )}
+                        {addr.isDefault && (
+                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">
+                            Default
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="font-bold text-gray-900">
+                      {addr.namaPenerima}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {addr.teleponPenerima}
+                    </p>
+                    <p className="text-sm text-gray-700 mt-1">
+                      {addr.alamatBaris1}
+                      {addr.alamatBaris2 && `, ${addr.alamatBaris2}`}
+                      <br />
+                      {addr.kota}, {addr.provinsi} {addr.kodePos}
+                    </p>
+                  </button>
+                ))
+              )}
+              <button
+                onClick={() => {
+                  setShowAddressModal(false);
+                  navigate("/customer/profile");
+                }}
+                className="w-full mt-4 border-2 border-dashed border-[#cb5094] text-[#cb5094] py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-pink-50 transition-all"
+              >
+                <Plus className="w-5 h-5" />
+                Tambah Alamat Baru di Profil
+              </button>
             </div>
           </div>
         </div>
@@ -715,25 +923,136 @@ function CustomerCheckout() {
 
                 <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
                   <p className="text-sm text-blue-800">
-                    <span className="font-bold">💡 Info:</span> Data nama,
-                    telepon, dan email sudah diisi otomatis dari profil Anda.
-                    Anda bisa mengubahnya jika diperlukan.
+                    <span className="font-bold">Info:</span> Data nama, telepon,
+                    dan email sudah diisi otomatis dari profil Anda. Anda bisa
+                    mengubahnya jika diperlukan.
                   </p>
                 </div>
 
-                <form onSubmit={handleShippingSubmit} className="space-y-4">
-                  <div className="grid sm:grid-cols-2 gap-4">
+                {/* Tombol Pilih Mode Alamat */}
+                <div className="mb-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddressModal(true)}
+                    className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
+                      addressMode === "saved"
+                        ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Home className="w-5 h-5" />
+                    Pilih Alamat Tersimpan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={switchToManual}
+                    className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+                      addressMode === "manual"
+                        ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Input Manual
+                  </button>
+                </div>
+
+                {/* Ringkasan jika pakai alamat tersimpan */}
+                {addressMode === "saved" && savedAddresses.length > 0 && (
+                  <div className="space-y-6">
+                    <div className="bg-green-50 border-2 border-green-200 rounded-xl p-5">
+                      <p className="text-green-800 font-medium mb-3">
+                        ✅ Menggunakan alamat default dari profil Anda
+                      </p>
+                      <div className="bg-white rounded-xl p-4 border border-gray-200">
+                        <p className="font-bold text-gray-900 mb-1">
+                          {shippingForm.namaPenerima}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {shippingForm.teleponPenerima}
+                        </p>
+                        <p className="text-sm text-gray-700 mt-3">
+                          {shippingForm.alamatBaris1}
+                          {shippingForm.alamatBaris2 &&
+                            `, ${shippingForm.alamatBaris2}`}
+                          <br />
+                          {shippingForm.lokasiLengkap} {shippingForm.kodePos}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowAddressModal(true)}
+                        className="mt-4 text-sm text-[#cb5094] font-bold hover:underline"
+                      >
+                        Ganti alamat tersimpan
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => setStep(3)}
+                      className="w-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white py-4 rounded-xl font-bold hover:shadow-2xl transition-all"
+                    >
+                      Lanjut ke Pengiriman
+                    </button>
+                  </div>
+                )}
+
+                {/* Form Input Manual */}
+                {addressMode === "manual" && (
+                  <form onSubmit={handleShippingSubmit} className="space-y-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                          Nama Penerima *
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingForm.namaPenerima}
+                          onChange={(e) =>
+                            setShippingForm((prev) => ({
+                              ...prev,
+                              namaPenerima: e.target.value,
+                            }))
+                          }
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                          Nomor Telepon *
+                        </label>
+                        <input
+                          type="tel"
+                          value={shippingForm.teleponPenerima}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, "");
+                            setShippingForm((prev) => ({
+                              ...prev,
+                              teleponPenerima: value,
+                            }));
+                          }}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
+                          placeholder="081234567890"
+                          maxLength="13"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Format: 08xxxxxxxxxx
+                        </p>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">
-                        Nama Penerima *
+                        Email *
                       </label>
                       <input
-                        type="text"
-                        value={shippingForm.namaPenerima}
+                        type="email"
+                        value={shippingForm.emailPenerima}
                         onChange={(e) =>
                           setShippingForm((prev) => ({
                             ...prev,
-                            namaPenerima: e.target.value,
+                            emailPenerima: e.target.value,
                           }))
                         }
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
@@ -741,250 +1060,196 @@ function CustomerCheckout() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
-                        Nomor Telepon *
-                      </label>
-                      <input
-                        type="tel"
-                        value={shippingForm.teleponPenerima}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, "");
-                          setShippingForm((prev) => ({
-                            ...prev,
-                            teleponPenerima: value,
-                          }));
-                        }}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
-                        placeholder="081234567890"
-                        maxLength="13"
-                        required
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Format: 08xxxxxxxxxx
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      value={shippingForm.emailPenerima}
-                      onChange={(e) =>
-                        setShippingForm((prev) => ({
-                          ...prev,
-                          emailPenerima: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-2 relative">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
-                        Kota/Kecamatan/Provinsi *
-                      </label>
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
-                        placeholder="Ketik minimal 3 karakter..."
-                        required
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Minimal 3 karakter untuk mencari
-                      </p>
-
-                      {searchLoading && (
-                        <div className="absolute right-3 top-11 text-gray-400 animate-spin">
-                          <Package className="w-5 h-5" />
+                    <div className="grid sm:grid-cols-3 gap-4">
+                      <div className="sm:col-span-2 relative">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                          Kecamatan/Kota/Provinsi *
+                        </label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
+                            placeholder="Ketik minimal 3 karakter..."
+                            required
+                          />
                         </div>
-                      )}
 
-                      {searchResults.length > 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                          {searchResults.map((area, index) => {
-                            const cleanName =
-                              area.cleanName ||
-                              area.name.replace(/\.\s*\d+$/g, "").trim();
+                        {searchLoading && (
+                          <div className="absolute right-3 top-12">
+                            <div className="w-5 h-5 border-2 border-[#cb5094] border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        )}
 
-                            return (
-                              <button
-                                key={`${area.id}-${index}`}
-                                type="button"
-                                onClick={() => handleAreaSelect(area)}
-                                className="w-full text-left px-4 py-3 hover:bg-pink-50 transition-colors border-b border-gray-100 last:border-0"
-                              >
-                                <div className="font-semibold text-gray-900">
-                                  {cleanName}
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  {area.administrative_division_level_2_name &&
-                                    `${area.administrative_division_level_2_name}, `}
-                                  {area.administrative_division_level_1_name}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                        {searchResults.length > 0 && (
+                          <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                            {searchResults.map((area, index) => {
+                              const cleanName =
+                                area.cleanName ||
+                                area.name.replace(/\.\s*\d+$/g, "").trim();
 
-                    <div className="relative">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
-                        Kode Pos *
-                      </label>
-                      {selectedArea ? (
-                        selectedArea.postal_codes &&
-                        selectedArea.postal_codes.length > 0 ? (
-                          <div>
-                            <div
-                              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-white cursor-pointer flex items-center justify-between hover:border-[#cb5094] transition-colors"
-                              onClick={() =>
-                                setShowPostalDropdown(!showPostalDropdown)
-                              }
-                            >
-                              <span
-                                className={
-                                  shippingForm.kodePos
-                                    ? "text-gray-900"
-                                    : "text-gray-500"
+                              return (
+                                <button
+                                  key={`${area.id}-${index}`}
+                                  type="button"
+                                  onClick={() => handleAreaSelect(area)}
+                                  className="w-full text-left px-4 py-3 hover:bg-pink-50 transition-colors border-b border-gray-100 last:border-0"
+                                >
+                                  <div className="font-semibold text-gray-900">
+                                    {cleanName}
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    {area.administrative_division_level_2_name &&
+                                      `${area.administrative_division_level_2_name}, `}
+                                    {area.administrative_division_level_1_name}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="relative">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                          Kode Pos *
+                        </label>
+                        {selectedArea ? (
+                          selectedArea.postal_codes &&
+                          selectedArea.postal_codes.length > 0 ? (
+                            <div>
+                              <div
+                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-white cursor-pointer flex items-center justify-between hover:border-[#cb5094] transition-colors"
+                                onClick={() =>
+                                  setShowPostalDropdown(!showPostalDropdown)
                                 }
                               >
-                                {shippingForm.kodePos || "Pilih Kode Pos"}
-                              </span>
-                              <ChevronDown
-                                className={`w-5 h-5 text-gray-500 transition-transform ${
-                                  showPostalDropdown ? "rotate-180" : ""
-                                }`}
-                              />
-                            </div>
-                            {showPostalDropdown && (
-                              <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                                {selectedArea.postal_codes.map(
-                                  (postalCode, idx) => {
-                                    const formattedCode = String(
-                                      postalCode
-                                    ).padStart(5, "0");
-                                    return (
-                                      <button
-                                        key={idx}
-                                        type="button"
-                                        onClick={() =>
-                                          handlePostalSelect(postalCode)
-                                        }
-                                        className="w-full text-left px-4 py-3 hover:bg-pink-50 transition-colors border-b border-gray-100 last:border-0 font-semibold text-gray-900"
-                                      >
-                                        {formattedCode}
-                                      </button>
-                                    );
+                                <span
+                                  className={
+                                    shippingForm.kodePos
+                                      ? "text-gray-900"
+                                      : "text-gray-500"
                                   }
-                                )}
+                                >
+                                  {shippingForm.kodePos || "Pilih Kode Pos"}
+                                </span>
+                                <ChevronDown
+                                  className={`w-5 h-5 text-gray-500 transition-transform ${
+                                    showPostalDropdown ? "rotate-180" : ""
+                                  }`}
+                                />
                               </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div>
+                              {showPostalDropdown && (
+                                <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                                  {selectedArea.postal_codes.map(
+                                    (postalCode, idx) => {
+                                      const formatted = String(
+                                        postalCode
+                                      ).padStart(5, "0");
+                                      return (
+                                        <button
+                                          key={idx}
+                                          type="button"
+                                          onClick={() =>
+                                            handlePostalSelect(postalCode)
+                                          }
+                                          className="w-full text-left px-4 py-3 hover:bg-pink-50 transition-colors border-b border-gray-100 last:border-0 font-semibold text-gray-900"
+                                        >
+                                          {formatted}
+                                        </button>
+                                      );
+                                    }
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
                             <input
                               type="text"
                               value={shippingForm.kodePos}
                               onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, "");
-                                if (value.length <= 5) {
-                                  setShippingForm((prev) => ({
-                                    ...prev,
-                                    kodePos: value,
-                                  }));
-                                }
+                                const value = e.target.value
+                                  .replace(/\D/g, "")
+                                  .slice(0, 5);
+                                setShippingForm((prev) => ({
+                                  ...prev,
+                                  kodePos: value,
+                                }));
                               }}
                               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
-                              placeholder="Input manual"
+                              placeholder="Masukkan kode pos"
                               maxLength="5"
                               required
                             />
-                            <p className="text-xs text-orange-600 mt-1">
-                              ⚠️ Kode pos tidak tersedia, input manual
-                            </p>
-                          </div>
-                        )
-                      ) : (
-                        <input
-                          type="text"
-                          value=""
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-100 text-gray-400"
-                          placeholder="Pilih kota dulu"
-                          disabled
-                        />
-                      )}
-                      <p className="text-xs text-gray-500 mt-1">
-                        {selectedArea
-                          ? selectedArea.postal_codes?.length > 0
-                            ? "Pilih dari daftar"
-                            : "Input manual 5 digit"
-                          : "Pilih kota terlebih dahulu"}
-                      </p>
+                          )
+                        ) : (
+                          <input
+                            type="text"
+                            value=""
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-100 text-gray-400"
+                            placeholder="Pilih kota dulu"
+                            disabled
+                          />
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Alamat Lengkap *
-                    </label>
-                    <input
-                      type="text"
-                      value={shippingForm.alamatBaris1}
-                      onChange={(e) =>
-                        setShippingForm((prev) => ({
-                          ...prev,
-                          alamatBaris1: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
-                      placeholder="Jl. Nama Jalan No. 123"
-                      required
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
+                        Alamat Lengkap *
+                      </label>
+                      <input
+                        type="text"
+                        value={shippingForm.alamatBaris1}
+                        onChange={(e) =>
+                          setShippingForm((prev) => ({
+                            ...prev,
+                            alamatBaris1: e.target.value,
+                          }))
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
+                        placeholder="Jl. Nama Jalan No. 123"
+                        required
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Detail Alamat (Opsional)
-                    </label>
-                    <input
-                      type="text"
-                      value={shippingForm.alamatBaris2}
-                      onChange={(e) =>
-                        setShippingForm((prev) => ({
-                          ...prev,
-                          alamatBaris2: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
-                      placeholder="Patokan, RT/RW, dll"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
+                        Detail Alamat (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        value={shippingForm.alamatBaris2}
+                        onChange={(e) =>
+                          setShippingForm((prev) => ({
+                            ...prev,
+                            alamatBaris2: e.target.value,
+                          }))
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#cb5094] transition-colors"
+                        placeholder="Patokan, RT/RW, dll"
+                      />
+                    </div>
 
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setStep(1)}
-                      className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all"
-                    >
-                      Kembali
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-[#cb5094]/40 transition-all duration-300 transform hover:scale-105"
-                    >
-                      Lanjutkan
-                    </button>
-                  </div>
-                </form>
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setStep(1)}
+                        className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all"
+                      >
+                        Kembali
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-[#cb5094]/40 transition-all duration-300 transform hover:scale-105"
+                      >
+                        Lanjutkan
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             )}
 
@@ -1054,9 +1319,9 @@ function CustomerCheckout() {
 
                         return (
                           <button
-                            key={idx}
+                            key={rate.uniqueId}
                             type="button"
-                            onClick={() => setSelectedCourier(rate)} // ✅ Simple & works
+                            onClick={() => setSelectedCourier(rate)}
                             className={`w-full p-5 rounded-2xl border-3 transition-all relative overflow-hidden text-left ${
                               isSelected
                                 ? "border-[#cb5094] bg-gradient-to-br from-pink-50 to-[#cb5094]/5 shadow-lg"

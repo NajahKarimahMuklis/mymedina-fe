@@ -1,46 +1,64 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
-  PackageSearch, FolderTree, ClipboardList, CreditCard, LogOut, Home, Clock, CheckCircle, Menu, X, Truck
-} from 'lucide-react';
-import { productAPI, categoryAPI } from '../utils/api';
-import api from '../utils/api';
-import { formatPrice } from '../utils/formatPrice';
+  PackageSearch,
+  FolderTree,
+  ClipboardList,
+  CreditCard,
+  LogOut,
+  Home,
+  Clock,
+  CheckCircle,
+  Menu,
+  X,
+  Truck,
+} from "lucide-react";
+import { productAPI, categoryAPI } from "../utils/api";
+import api from "../utils/api";
+import { formatPrice } from "../utils/formatPrice";
 
 export default function AdminDashboard() {
-  const [adminData, setAdminData] = useState({ nama: 'Admin', email: '', role: 'ADMIN' });
+  const [adminData, setAdminData] = useState({
+    nama: "Admin",
+    email: "",
+    role: "ADMIN",
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [stats, setStats] = useState({
     totalProducts: 0,
     totalCategories: 0,
     todayOrders: 0,
     pendingOrders: 0,
-    monthlyRevenue: 0
+    monthlyRevenue: 0,
   });
   const [recentProducts, setRecentProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // State untuk popup logout
+
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     const init = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
-        const userStr = localStorage.getItem('user');
-        if (!token || !userStr) throw new Error('Unauthorized');
+        const token = localStorage.getItem("accessToken");
+        const userStr = localStorage.getItem("user");
+        if (!token || !userStr) throw new Error("Unauthorized");
 
         const user = JSON.parse(userStr);
-        const role = (user.role || '').toString().trim().toUpperCase();
-        if (role !== 'ADMIN') throw new Error('Forbidden');
+        const role = (user.role || "").toString().trim().toUpperCase();
+        if (role !== "ADMIN") throw new Error("Forbidden");
 
         setAdminData({
-          nama: user.nama || 'Admin',
-          email: user.email || '',
-          role: 'ADMIN'
+          nama: user.nama || "Admin",
+          email: user.email || "",
+          role: "ADMIN",
         });
 
         // Ambil semua order
-        const ordersRes = await api.get('/orders/admin/all', { params: { limit: 1000 } });
+        const ordersRes = await api.get("/orders/admin/all", {
+          params: { limit: 1000 },
+        });
         const ordersArray = ordersRes.data.data || ordersRes.data.orders || [];
 
         // Ambil semua payment untuk hitung revenue akurat
@@ -56,35 +74,47 @@ export default function AdminDashboard() {
         );
 
         const allPayments = paymentsRes.flat();
-        const successfulPayments = allPayments.filter(p => 
-          ['SETTLEMENT', 'SETTLED', 'CAPTURE'].includes(p.status?.toUpperCase())
+        const successfulPayments = allPayments.filter((p) =>
+          ["SETTLEMENT", "SETTLED", "CAPTURE"].includes(p.status?.toUpperCase())
         );
 
         // Hitung revenue dari payment yang berhasil
-        const monthlyRevenue = successfulPayments.reduce((sum, p) => sum + Number(p.jumlah || 0), 0);
+        const monthlyRevenue = successfulPayments.reduce(
+          (sum, p) => sum + Number(p.jumlah || 0),
+          0
+        );
 
         // Hitung stats lain dari orders
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
         const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        const todayOrdersCount = ordersArray.filter(order => {
+        const todayOrdersCount = ordersArray.filter((order) => {
           const orderDate = new Date(order.dibuatPada || order.createdAt);
           return orderDate >= today;
         }).length;
 
-        const pendingOrdersCount = ordersArray.filter(order => 
-          order.status === 'PENDING_PAYMENT' || order.status === 'PAID' || order.status === 'PROCESSING'
+        const pendingOrdersCount = ordersArray.filter(
+          (order) =>
+            order.status === "PENDING_PAYMENT" ||
+            order.status === "PAID" ||
+            order.status === "PROCESSING"
         ).length;
 
         // Produk & kategori tetap
         const [prodRes, catRes] = await Promise.all([
           productAPI.getAll({ limit: 10 }), // Hapus sort parameter
-          categoryAPI.getAll(true)
+          categoryAPI.getAll(true),
         ]);
 
         const productsArray = prodRes.data?.data || prodRes.data || [];
-        const categoriesArray = Array.isArray(catRes) ? catRes : catRes.data || [];
+        const categoriesArray = Array.isArray(catRes)
+          ? catRes
+          : catRes.data || [];
 
         setRecentProducts(productsArray);
         setStats({
@@ -92,13 +122,12 @@ export default function AdminDashboard() {
           totalCategories: categoriesArray.length,
           todayOrders: todayOrdersCount,
           pendingOrders: pendingOrdersCount,
-          monthlyRevenue: monthlyRevenue // ← Sekarang akurat!
+          monthlyRevenue: monthlyRevenue, // ← Sekarang akurat!
         });
-
       } catch (err) {
         console.error(err);
         localStorage.clear();
-        navigate('/login', { replace: true });
+        navigate("/login", { replace: true });
       } finally {
         setLoading(false);
       }
@@ -107,9 +136,24 @@ export default function AdminDashboard() {
     init();
   }, [navigate]);
 
+
   const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login', { replace: true });
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    try {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("cart"); // optional: bersihkan cart
+      window.location.href = "/";
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false);
   };
 
   const isActiveRoute = (path) => {
@@ -117,7 +161,7 @@ export default function AdminDashboard() {
   };
 
   const getProductImages = (product) => {
-    return product.gambarUrl?.split('|||').filter(url => url) || [];
+    return product.gambarUrl?.split("|||").filter((url) => url) || [];
   };
 
   const isPreOrder = (product) => {
@@ -140,12 +184,11 @@ export default function AdminDashboard() {
   }
 
   const menuItems = [
-    { path: '/admin/dashboard', icon: Home, label: 'Beranda' },
-    { path: '/admin/products', icon: PackageSearch, label: 'Produk' },
-    { path: '/admin/categories', icon: FolderTree, label: 'Kategori' },
-    { path: '/admin/orders', icon: ClipboardList, label: 'Pesanan' },
-    { path: '/admin/transactions', icon: CreditCard, label: 'Transaksi' },
-    { path: '/admin/shipments', icon: Truck, label: 'Pengiriman' }
+    { path: "/admin/dashboard", icon: Home, label: "Beranda" },
+    { path: "/admin/products", icon: PackageSearch, label: "Produk" },
+    { path: "/admin/categories", icon: FolderTree, label: "Kategori" },
+    { path: "/admin/orders", icon: ClipboardList, label: "Pesanan" },
+    { path: "/admin/transactions", icon: CreditCard, label: "Transaksi" },
   ];
 
   return (
@@ -159,18 +202,25 @@ export default function AdminDashboard() {
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 className="lg:hidden p-2 hover:bg-pink-50 rounded-lg transition"
               >
-                {isSidebarOpen ? <X className="w-6 h-6 text-[#cb5094]" /> : <Menu className="w-6 h-6 text-[#cb5094]" />}
+                {isSidebarOpen ? (
+                  <X className="w-6 h-6 text-[#cb5094]" />
+                ) : (
+                  <Menu className="w-6 h-6 text-[#cb5094]" />
+                )}
               </button>
 
-              <a href="/admin/dashboard" className="flex items-center space-x-3 group">
+              <a
+                href="/admin/dashboard"
+                className="flex items-center space-x-3 group"
+              >
                 <div className="relative w-12 h-12 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 overflow-hidden">
                   <img
                     src="/logo.png"
                     alt="Medina Stuff"
                     className="w-8 h-8 object-contain z-10"
                     onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextElementSibling.style.display = 'flex';
+                      e.target.style.display = "none";
+                      e.target.nextElementSibling.style.display = "flex";
                     }}
                   />
                   <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-white z-10 hidden">
@@ -178,7 +228,9 @@ export default function AdminDashboard() {
                   </span>
                 </div>
                 <div className="hidden sm:block">
-                  <div className="text-base font-bold text-gray-800">MyMedina</div>
+                  <div className="text-base font-bold text-gray-800">
+                    MyMedina
+                  </div>
                   <div className="text-xs text-gray-500">by Medina Stuff</div>
                 </div>
               </a>
@@ -188,11 +240,18 @@ export default function AdminDashboard() {
               <div className="hidden sm:flex items-center space-x-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-md">
                   <span className="text-sm font-bold text-white">
-                    {adminData.nama.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                    {adminData.nama
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
                   </span>
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-gray-800">{adminData.nama}</div>
+                  <div className="text-sm font-bold text-gray-800">
+                    {adminData.nama}
+                  </div>
                 </div>
               </div>
             </div>
@@ -209,15 +268,15 @@ export default function AdminDashboard() {
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = isActiveRoute(item.path);
-                
+
                 return (
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
                     className={`w-full flex items-center space-x-3 px-5 py-4 rounded-2xl transition-all duration-200 font-medium ${
                       isActive
-                        ? 'bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg'
-                        : 'text-gray-700 hover:bg-pink-50'
+                        ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
+                        : "text-gray-700 hover:bg-pink-50"
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -240,9 +299,11 @@ export default function AdminDashboard() {
         </aside>
 
         {/* Sidebar Mobile */}
-        <aside className={`lg:hidden fixed top-16 left-0 z-40 w-64 bg-white shadow-2xl transform transition-transform duration-300 h-auto ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
+        <aside
+          className={`lg:hidden fixed top-16 left-0 z-40 w-64 bg-white shadow-2xl transform transition-transform duration-300 h-auto ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
           <div className="p-6">
             <button
               onClick={() => {
@@ -258,14 +319,21 @@ export default function AdminDashboard() {
         </aside>
 
         {isSidebarOpen && (
-          <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+          <div
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
         )}
 
         {/* Main Content */}
         <main className="flex-1">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-2">
-            <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Selamat Datang, {adminData.nama.split(' ')[0]}!</h1>
-            <p className="text-gray-600 mb-8 lg:mb-10">Ini ringkasan toko kamu hari ini</p>
+            <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
+              Selamat Datang, {adminData.nama.split(" ")[0]}!
+            </h1>
+            <p className="text-gray-600 mb-8 lg:mb-10">
+              Ini ringkasan toko kamu hari ini
+            </p>
 
             {/* Stats Cards - 5 cards, rapi & konsisten */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-6 mb-8 lg:mb-12">
@@ -274,8 +342,12 @@ export default function AdminDashboard() {
                 <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-xl lg:rounded-2xl flex items-center justify-center mb-3 lg:mb-4">
                   <PackageSearch className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
                 </div>
-                <p className="text-2xl lg:text-3xl font-bold text-gray-800">{stats.totalProducts}</p>
-                <p className="text-xs lg:text-sm text-gray-600 mt-1">Total Produk</p>
+                <p className="text-2xl lg:text-3xl font-bold text-gray-800">
+                  {stats.totalProducts}
+                </p>
+                <p className="text-xs lg:text-sm text-gray-600 mt-1">
+                  Total Produk
+                </p>
               </div>
 
               {/* Kategori */}
@@ -283,8 +355,12 @@ export default function AdminDashboard() {
                 <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-xl lg:rounded-2xl flex items-center justify-center mb-3 lg:mb-4">
                   <FolderTree className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
                 </div>
-                <p className="text-2xl lg:text-3xl font-bold text-gray-800">{stats.totalCategories}</p>
-                <p className="text-xs lg:text-sm text-gray-600 mt-1">Kategori</p>
+                <p className="text-2xl lg:text-3xl font-bold text-gray-800">
+                  {stats.totalCategories}
+                </p>
+                <p className="text-xs lg:text-sm text-gray-600 mt-1">
+                  Kategori
+                </p>
               </div>
 
               {/* Order Hari Ini */}
@@ -292,8 +368,12 @@ export default function AdminDashboard() {
                 <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-xl lg:rounded-2xl flex items-center justify-center mb-3 lg:mb-4">
                   <ClipboardList className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
                 </div>
-                <p className="text-2xl lg:text-3xl font-bold text-gray-800">{stats.todayOrders}</p>
-                <p className="text-xs lg:text-sm text-gray-600 mt-1">Order Hari Ini</p>
+                <p className="text-2xl lg:text-3xl font-bold text-gray-800">
+                  {stats.todayOrders}
+                </p>
+                <p className="text-xs lg:text-sm text-gray-600 mt-1">
+                  Order Hari Ini
+                </p>
               </div>
 
               {/* Menunggu Proses */}
@@ -301,8 +381,12 @@ export default function AdminDashboard() {
                 <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-xl lg:rounded-2xl flex items-center justify-center mb-3 lg:mb-4">
                   <Clock className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
                 </div>
-                <p className="text-2xl lg:text-3xl font-bold text-gray-800">{stats.pendingOrders}</p>
-                <p className="text-xs lg:text-sm text-gray-600 mt-1">Menunggu Proses</p>
+                <p className="text-2xl lg:text-3xl font-bold text-gray-800">
+                  {stats.pendingOrders}
+                </p>
+                <p className="text-xs lg:text-sm text-gray-600 mt-1">
+                  Menunggu Proses
+                </p>
               </div>
 
               {/* Revenue Bulan Ini */}
@@ -310,17 +394,23 @@ export default function AdminDashboard() {
                 <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-xl lg:rounded-2xl flex items-center justify-center mb-3 lg:mb-4">
                   <CreditCard className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
                 </div>
-                <p className="text-2xl lg:text-3xl font-bold text-gray-800">{formatPrice(stats.monthlyRevenue)}</p>
-                <p className="text-xs lg:text-sm text-gray-600 mt-1">Revenue Bulan Ini</p>
+                <p className="text-2xl lg:text-3xl font-bold text-gray-800">
+                  {formatPrice(stats.monthlyRevenue)}
+                </p>
+                <p className="text-xs lg:text-sm text-gray-600 mt-1">
+                  Revenue Bulan Ini
+                </p>
               </div>
             </div>
 
             {/* Produk Terbaru */}
             <div className="bg-white rounded-2xl lg:rounded-3xl shadow-xl p-4 sm:p-6 lg:p-8">
               <div className="flex justify-between items-center mb-6 lg:mb-8">
-                <h2 className="text-xl lg:text-2xl font-bold text-gray-900">Produk Terbaru</h2>
+                <h2 className="text-xl lg:text-2xl font-bold text-gray-900">
+                  Produk Terbaru
+                </h2>
                 <button
-                  onClick={() => navigate('/admin/products')}
+                  onClick={() => navigate("/admin/products")}
                   className="text-[#cb5094] hover:underline font-medium flex items-center gap-2 text-sm lg:text-base"
                 >
                   Lihat Semua
@@ -334,9 +424,11 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-                  {recentProducts.map(product => {
+                  {recentProducts.map((product) => {
                     const images = getProductImages(product);
-                    const mainImage = images[0] || 'https://placehold.co/400x533/cccccc/ffffff?text=No+Image';
+                    const mainImage =
+                      images[0] ||
+                      "https://placehold.co/400x533/cccccc/ffffff?text=No+Image";
                     const productIsPreOrder = isPreOrder(product);
                     const productIsReadyStock = isReadyStock(product);
 
@@ -350,7 +442,10 @@ export default function AdminDashboard() {
                             src={mainImage}
                             alt={product.nama}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                            onError={(e) => e.target.src = 'https://placehold.co/400x533/cccccc/ffffff?text=No+Image'}
+                            onError={(e) =>
+                              (e.target.src =
+                                "https://placehold.co/400x533/cccccc/ffffff?text=No+Image")
+                            }
                           />
 
                           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -403,13 +498,13 @@ export default function AdminDashboard() {
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = isActiveRoute(item.path);
-            
+
             return (
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={`flex flex-col items-center justify-center space-y-1 relative transition-all duration-200 ${
-                  isActive ? 'text-[#cb5094]' : 'text-gray-600'
+                  isActive ? "text-[#cb5094]" : "text-gray-600"
                 }`}
               >
                 <Icon className="w-6 h-6" />
@@ -422,6 +517,48 @@ export default function AdminDashboard() {
           })}
         </div>
       </nav>
+
+      {/* Logout Confirmation Popup */}
+      {/* Popup Konfirmasi Logout */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Background Blur */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={cancelLogout}
+          />
+
+          {/* Popup Card */}
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 animate-in fade-in zoom-in duration-300">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg">
+                <LogOut className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Yakin ingin keluar?
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Anda akan kembali ke halaman utama dan sesi login akan berakhir.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={cancelLogout}
+                className="flex-1 py-3.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 py-3.5 rounded-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] hover:from-[#b44682] hover:to-[#c54e96] text-white font-bold shadow-lg hover:shadow-xl transition-all"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

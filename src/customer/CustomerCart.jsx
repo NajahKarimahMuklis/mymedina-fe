@@ -1,8 +1,15 @@
-import { useState, useEffect, useLayoutEffect } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
-import { ShoppingCart, Plus, Minus, Trash2, ArrowRight, ShoppingBag } from 'lucide-react';
-import { formatPrice } from '../utils/formatPrice';
-import toast from 'react-hot-toast';
+import { useState, useEffect, useLayoutEffect } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
+import {
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  ArrowRight,
+  ShoppingBag,
+} from "lucide-react";
+import { formatPrice } from "../utils/formatPrice";
+import toast from "react-hot-toast";
 
 function CustomerCart() {
   const [cartItems, setCartItems] = useState([]);
@@ -12,26 +19,26 @@ function CustomerCart() {
   const { setCartCount } = useOutletContext();
 
   useLayoutEffect(() => {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
     setCartCount(cart.length);
   }, [setCartCount]);
 
   useEffect(() => {
     const loadCart = () => {
-      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-      
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+
       const mergedCart = [];
-      cart.forEach(item => {
-        const itemSize = item.ukuran || item.size || '';
-        const itemColor = item.warna || item.color || '';
-        
-        const existingIndex = mergedCart.findIndex(existing => {
-          const existingSize = existing.ukuran || existing.size || '';
-          const existingColor = existing.warna || existing.color || '';
-          
+      cart.forEach((item) => {
+        const itemSize = item.ukuran || item.size || "";
+        const itemColor = item.warna || item.color || "";
+
+        const existingIndex = mergedCart.findIndex((existing) => {
+          const existingSize = existing.ukuran || existing.size || "";
+          const existingColor = existing.warna || existing.color || "";
+
           return (
-            existing.id === item.id && 
-            existingSize === itemSize && 
+            existing.id === item.id &&
+            existingSize === itemSize &&
             existingColor === itemColor &&
             existing.variantId === item.variantId
           );
@@ -43,17 +50,17 @@ function CustomerCart() {
           const standardizedItem = {
             ...item,
             ukuran: itemSize,
-            warna: itemColor
+            warna: itemColor,
           };
           delete standardizedItem.size;
           delete standardizedItem.color;
-          
+
           mergedCart.push(standardizedItem);
         }
       });
 
-      localStorage.setItem('cart', JSON.stringify(mergedCart));
-      
+      localStorage.setItem("cart", JSON.stringify(mergedCart));
+
       setCartItems(mergedCart);
       setCartCount(mergedCart.length);
       setSelectedItems(mergedCart.map((_, i) => i));
@@ -62,16 +69,14 @@ function CustomerCart() {
     loadCart();
 
     const handleCartUpdate = () => loadCart();
-    window.addEventListener('cartUpdated', handleCartUpdate);
+    window.addEventListener("cartUpdated", handleCartUpdate);
 
-    return () => window.removeEventListener('cartUpdated', handleCartUpdate);
+    return () => window.removeEventListener("cartUpdated", handleCartUpdate);
   }, [setCartCount]);
 
   const toggleSelectItem = (index) => {
-    setSelectedItems(prev =>
-      prev.includes(index)
-        ? prev.filter(i => i !== index)
-        : [...prev, index]
+    setSelectedItems((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     );
   };
 
@@ -92,17 +97,43 @@ function CustomerCart() {
     const maxStock = item.stok ?? 999;
 
     if (change > 0 && newQty > maxStock) {
-      toast.error(`Stok tersedia hanya ${maxStock} pcs`);
+      toast.error(`Stok tersedia hanya ${maxStock} pcs`, {
+        position: "bottom-right",
+        style: {
+          borderRadius: "12px",
+          background: "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(10px)",
+          color: "#333",
+          fontSize: "14px",
+          padding: "16px 20px",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+          border: "1px solid rgba(0, 0, 0, 0.08)",
+          borderLeft: "4px solid #ef4444",
+        },
+      });
       return;
     }
 
     item.quantity = Math.max(1, newQty);
 
-    localStorage.setItem('cart', JSON.stringify(cart));
+    localStorage.setItem("cart", JSON.stringify(cart));
     setCartItems(cart);
     setCartCount(cart.length);
-    window.dispatchEvent(new Event('cartUpdated'));
-    toast.success('Jumlah diperbarui');
+    window.dispatchEvent(new Event("cartUpdated"));
+    toast.success("Jumlah diperbarui", {
+      position: "bottom-right",
+      style: {
+        borderRadius: "12px",
+        background: "rgba(255, 255, 255, 0.95)",
+        backdropFilter: "blur(10px)",
+        color: "#333",
+        fontSize: "14px",
+        padding: "16px 20px",
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+        border: "1px solid rgba(0, 0, 0, 0.08)",
+        borderLeft: "4px solid #10b981",
+      },
+    });
   };
 
   const confirmRemoveFromCart = (index) => {
@@ -117,12 +148,29 @@ function CustomerCart() {
     if (deleteConfirmIndex === null) return;
 
     const cart = cartItems.filter((_, i) => i !== deleteConfirmIndex);
-    localStorage.setItem('cart', JSON.stringify(cart));
+    localStorage.setItem("cart", JSON.stringify(cart));
     setCartItems(cart);
     setCartCount(cart.length);
-    setSelectedItems(prev => prev.filter(i => i !== deleteConfirmIndex).map(i => i > deleteConfirmIndex ? i - 1 : i));
-    window.dispatchEvent(new Event('cartUpdated'));
-    toast.success('Produk dihapus dari keranjang');
+    setSelectedItems((prev) =>
+      prev
+        .filter((i) => i !== deleteConfirmIndex)
+        .map((i) => (i > deleteConfirmIndex ? i - 1 : i))
+    );
+    window.dispatchEvent(new Event("cartUpdated"));
+    toast.success("Produk dihapus dari keranjang", {
+      position: "bottom-right",
+      style: {
+        borderRadius: "12px",
+        background: "rgba(255, 255, 255, 0.95)",
+        backdropFilter: "blur(10px)",
+        color: "#333",
+        fontSize: "14px",
+        padding: "16px 20px",
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+        border: "1px solid rgba(0, 0, 0, 0.08)",
+        borderLeft: "4px solid #10b981",
+      },
+    });
     setDeleteConfirmIndex(null);
   };
 
@@ -144,12 +192,26 @@ function CustomerCart() {
 
   const handleCheckout = () => {
     if (selectedCount === 0) {
-      toast.error('Pilih minimal 1 produk untuk checkout');
+      toast.error("Pilih minimal 1 produk untuk checkout", {
+        position: "bottom-right",
+        style: {
+          borderRadius: "12px",
+          background: "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(10px)",
+          color: "#333",
+          fontSize: "14px",
+          padding: "16px 20px",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+          border: "1px solid rgba(0, 0, 0, 0.08)",
+          borderLeft: "4px solid #f59e0b",
+        },
+      });
       return;
     }
 
-    localStorage.setItem('checkoutItems', JSON.stringify(getSelectedItems()));
-    navigate('/customer/checkout');
+    localStorage.setItem("checkoutItems", JSON.stringify(getSelectedItems()));
+    localStorage.setItem("checkoutFrom", "cart");
+    navigate("/customer/checkout");
   };
 
   return (
@@ -164,7 +226,9 @@ function CustomerCart() {
             <div className="flex items-center gap-3">
               <div className="h-1 w-16 bg-gradient-to-r from-[#cb5094] to-[#e570b3] rounded-full"></div>
               <p className="text-gray-600 font-medium">
-                {cartItems.length === 0 ? 'Belum ada item' : `${cartItems.length} item di keranjang`}
+                {cartItems.length === 0
+                  ? "Belum ada item"
+                  : `${cartItems.length} item di keranjang`}
               </p>
             </div>
           </div>
@@ -175,15 +239,20 @@ function CustomerCart() {
             <div className="relative mb-8">
               <div className="absolute inset-0 bg-gradient-to-br from-[#cb5094]/20 to-[#e570b3]/20 rounded-full blur-3xl"></div>
               <div className="relative w-40 h-40 bg-white rounded-full flex items-center justify-center shadow-2xl border border-[#cb5094]/10">
-                <ShoppingBag className="w-20 h-20 text-[#cb5094]/30" strokeWidth={1.5} />
+                <ShoppingBag
+                  className="w-20 h-20 text-[#cb5094]/30"
+                  strokeWidth={1.5}
+                />
               </div>
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Keranjang Masih Kosong</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">
+              Keranjang Masih Kosong
+            </h2>
             <p className="text-gray-500 mb-10 max-w-md text-center font-medium text-lg">
               Yuk mulai belanja sekarang dan temukan produk favorit kamu!
             </p>
             <button
-              onClick={() => navigate('/customer/products')}
+              onClick={() => navigate("/customer/products")}
               className="group px-12 py-5 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all duration-300 flex items-center gap-3 transform hover:scale-105"
             >
               Mulai Belanja
@@ -201,16 +270,30 @@ function CustomerCart() {
                   className="flex items-center justify-between w-full group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                      selectedItems.length === cartItems.length && cartItems.length > 0
-                        ? 'bg-[#cb5094] border-[#cb5094]'
-                        : 'border-gray-400 group-hover:border-[#cb5094]'
-                    }`}>
-                      {selectedItems.length === cartItems.length && cartItems.length > 0 && (
-                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                    <div
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                        selectedItems.length === cartItems.length &&
+                        cartItems.length > 0
+                          ? "bg-[#cb5094] border-[#cb5094]"
+                          : "border-gray-400 group-hover:border-[#cb5094]"
+                      }`}
+                    >
+                      {selectedItems.length === cartItems.length &&
+                        cartItems.length > 0 && (
+                          <svg
+                            className="w-3.5 h-3.5 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={3}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
                     </div>
                     <span className="text-sm font-bold text-gray-900">
                       Pilih Semua
@@ -225,19 +308,22 @@ function CustomerCart() {
               {/* Product Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {cartItems.map((item, index) => {
-                  const displayImage = item.variantImageUrl || 
-                                      (item.gambarUrl?.split('|||')[0]) || 
-                                      'https://via.placeholder.com/200?text=No+Image';
+                  const displayImage =
+                    item.variantImageUrl ||
+                    item.gambarUrl?.split("|||")[0] ||
+                    "https://via.placeholder.com/200?text=No+Image";
 
                   const maxStock = item.stok ?? 999;
                   const isMaxReached = item.quantity >= maxStock;
                   const isSelected = selectedItems.includes(index);
 
                   return (
-                    <div 
+                    <div
                       key={index}
                       className={`group relative bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden ${
-                        isSelected ? 'ring-2 ring-[#cb5094] shadow-[#cb5094]/20' : ''
+                        isSelected
+                          ? "ring-2 ring-[#cb5094] shadow-[#cb5094]/20"
+                          : ""
                       }`}
                     >
                       {isSelected && (
@@ -249,7 +335,10 @@ function CustomerCart() {
                         onClick={() => confirmRemoveFromCart(index)}
                         className="absolute top-3 right-3 z-10 p-2 rounded-full hover:bg-gray-100 transition-colors"
                       >
-                        <Trash2 className="w-5 h-5 text-gray-400 group-hover:text-red-600 transition-colors" strokeWidth={2} />
+                        <Trash2
+                          className="w-5 h-5 text-gray-400 group-hover:text-red-600 transition-colors"
+                          strokeWidth={2}
+                        />
                       </button>
 
                       <div className="p-4 pt-12">
@@ -257,14 +346,26 @@ function CustomerCart() {
                           {/* Checkbox */}
                           <div className="flex-shrink-0 pt-0.5">
                             <button onClick={() => toggleSelectItem(index)}>
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                                isSelected
-                                  ? 'bg-[#cb5094] border-[#cb5094]'
-                                  : 'border-gray-400 group-hover:border-[#cb5094]'
-                              }`}>
+                              <div
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                  isSelected
+                                    ? "bg-[#cb5094] border-[#cb5094]"
+                                    : "border-gray-400 group-hover:border-[#cb5094]"
+                                }`}
+                              >
                                 {isSelected && (
-                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  <svg
+                                    className="w-3 h-3 text-white"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={3}
+                                      d="M5 13l4 4L19 7"
+                                    />
                                   </svg>
                                 )}
                               </div>
@@ -274,43 +375,51 @@ function CustomerCart() {
                           {/* Image & Quantity */}
                           <div className="flex-shrink-0 flex flex-col gap-2">
                             <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
-                              <img 
-                                src={displayImage} 
-                                alt={item.nama} 
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                              <img
+                                src={displayImage}
+                                alt={item.nama}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                               />
                               {item.quantity > 1 && (
                                 <div className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full shadow-md">
-                                  <span className="text-[9px] font-bold text-white">×{item.quantity}</span>
+                                  <span className="text-[9px] font-bold text-white">
+                                    ×{item.quantity}
+                                  </span>
                                 </div>
                               )}
                             </div>
 
                             <div className="flex items-center gap-1.5 bg-gradient-to-r from-gray-50 to-pink-50/30 rounded-lg px-2 py-1.5">
-                              <button 
-                                onClick={() => updateQuantity(index, -1)} 
+                              <button
+                                onClick={() => updateQuantity(index, -1)}
                                 disabled={item.quantity <= 1}
                                 className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${
                                   item.quantity <= 1
-                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                    : 'bg-white text-gray-700 hover:shadow-md hover:scale-105'
+                                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                    : "bg-white text-gray-700 hover:shadow-md hover:scale-105"
                                 }`}
                               >
-                                <Minus className="w-2.5 h-2.5" strokeWidth={2.5} />
+                                <Minus
+                                  className="w-2.5 h-2.5"
+                                  strokeWidth={2.5}
+                                />
                               </button>
                               <span className="text-xs font-bold text-gray-900 w-5 text-center">
                                 {item.quantity}
                               </span>
-                              <button 
+                              <button
                                 onClick={() => updateQuantity(index, 1)}
                                 disabled={isMaxReached}
                                 className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${
                                   isMaxReached
-                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                    : 'bg-gradient-to-br from-[#cb5094] to-[#e570b3] text-white hover:shadow-lg hover:scale-105'
+                                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                    : "bg-gradient-to-br from-[#cb5094] to-[#e570b3] text-white hover:shadow-lg hover:scale-105"
                                 }`}
                               >
-                                <Plus className="w-2.5 h-2.5" strokeWidth={2.5} />
+                                <Plus
+                                  className="w-2.5 h-2.5"
+                                  strokeWidth={2.5}
+                                />
                               </button>
                             </div>
                           </div>
@@ -320,7 +429,7 @@ function CustomerCart() {
                             <h3 className="text-sm font-bold text-gray-900 line-clamp-2 leading-tight mb-2">
                               {item.nama}
                             </h3>
-                            
+
                             {(item.ukuran || item.warna) && (
                               <div className="flex items-center gap-1.5 flex-wrap mb-2">
                                 {item.ukuran && (
@@ -339,7 +448,10 @@ function CustomerCart() {
                             <div className="flex items-center gap-1.5 mb-3">
                               <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                               <p className="text-[10px] text-gray-600 font-semibold">
-                                Stok: {maxStock === 999 ? 'Tersedia' : `${maxStock} pcs`}
+                                Stok:{" "}
+                                {maxStock === 999
+                                  ? "Tersedia"
+                                  : `${maxStock} pcs`}
                               </p>
                             </div>
 
@@ -365,23 +477,31 @@ function CustomerCart() {
               <div className="sticky top-20">
                 <div className="relative overflow-hidden rounded-2xl shadow-xl border border-white/20 bg-gradient-to-br from-white to-[#cb5094]/20 backdrop-blur-xl">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#cb5094]/10 to-[#e570b3]/10 rounded-full blur-3xl"></div>
-                  
+
                   <div className="relative z-10 p-6 space-y-5 text-gray-800">
                     <div className="pb-4 border-b border-gray-300">
-                      <h2 className="text-xl font-bold text-gray-900 mb-1">Ringkasan Pesanan</h2>
-                      <p className="text-xs font-semibold">{selectedCount} item dipilih</p>
+                      <h2 className="text-xl font-bold text-gray-900 mb-1">
+                        Ringkasan Pesanan
+                      </h2>
+                      <p className="text-xs font-semibold">
+                        {selectedCount} item dipilih
+                      </p>
                     </div>
 
                     <div className="space-y-3">
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-xs uppercase tracking-wider font-bold">Subtotal</span>
+                        <span className="text-xs uppercase tracking-wider font-bold">
+                          Subtotal
+                        </span>
                         <span className="text-base font-bold">
                           {formatPrice(getTotalPrice())}
                         </span>
                       </div>
-                      
+
                       <div className="flex justify-between items-center py-2 border-b border-gray-300">
-                        <span className="text-xs uppercase tracking-wider font-bold">Total Barang</span>
+                        <span className="text-xs uppercase tracking-wider font-bold">
+                          Total Barang
+                        </span>
                         <span className="text-base font-bold">
                           {getTotalQuantity()} pcs
                         </span>
@@ -389,14 +509,18 @@ function CustomerCart() {
 
                       <div className="pt-3">
                         <div className="flex justify-between items-baseline mb-1">
-                          <span className="text-sm font-bold uppercase tracking-wide">Total Bayar</span>
+                          <span className="text-sm font-bold uppercase tracking-wide">
+                            Total Bayar
+                          </span>
                           <div className="text-right">
                             <span className="text-2xl font-bold bg-gradient-to-r from-[#cb5094] to-[#e570b3] bg-clip-text text-transparent block">
                               {formatPrice(getTotalPrice())}
                             </span>
                           </div>
                         </div>
-                        <p className="text-[10px] font-semibold text-right opacity-80">*Ongkir dihitung di checkout</p>
+                        <p className="text-[10px] font-semibold text-right opacity-80">
+                          *Ongkir dihitung di checkout
+                        </p>
                       </div>
                     </div>
 
@@ -406,8 +530,8 @@ function CustomerCart() {
                         disabled={selectedCount === 0}
                         className={`w-full py-4 rounded-xl text-base font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
                           selectedCount === 0
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white hover:shadow-2xl hover:shadow-[#cb5094]/40 transform hover:scale-105 active:scale-95'
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            : "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white hover:shadow-2xl hover:shadow-[#cb5094]/40 transform hover:scale-105 active:scale-95"
                         }`}
                       >
                         Lanjut ke Checkout
@@ -415,7 +539,7 @@ function CustomerCart() {
                       </button>
 
                       <button
-                        onClick={() => navigate('/customer/products')}
+                        onClick={() => navigate("/customer/products")}
                         className="w-full py-3 rounded-xl text-sm font-bold text-[#cb5094] border-2 border-[#cb5094] hover:bg-[#cb5094] hover:text-white transition-all duration-300"
                       >
                         Lanjut Belanja
@@ -433,7 +557,9 @@ function CustomerCart() {
       {deleteConfirmIndex !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Konfirmasi Hapus</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              Konfirmasi Hapus
+            </h3>
             <p className="text-gray-600 mb-6">
               Apakah anda yakin ingin menghapus produk ini dari keranjang?
             </p>

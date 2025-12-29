@@ -19,22 +19,18 @@ import {
 } from "lucide-react";
 import api from "../utils/api";
 import { formatPrice } from "../utils/formatPrice";
-
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);
-
   useEffect(() => {
     const timer = setTimeout(() => {
       handleClose();
     }, 4000);
     return () => clearTimeout(timer);
   }, []);
-
   const handleClose = () => {
     setIsExiting(true);
     setTimeout(() => onClose && onClose(), 300);
   };
-
   const configs = {
     success: { bgColor: "bg-green-500", shadowColor: "shadow-green-500/50" },
     error: { bgColor: "bg-red-500", shadowColor: "shadow-red-500/50" },
@@ -47,7 +43,6 @@ function Notification({ type, message, onClose }) {
       : type === "warning"
       ? AlertCircle
       : XCircle;
-
   return (
     <div
       className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ${
@@ -69,11 +64,9 @@ function Notification({ type, message, onClose }) {
     </div>
   );
 }
-
 function AdminShipments() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlOrderId = searchParams.get("orderId");
-
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -97,30 +90,31 @@ function AdminShipments() {
   const [submitting, setSubmitting] = useState(false);
   const [showMobileFilter, setShowMobileFilter] = useState(false);
   const [notification, setNotification] = useState(null);
-
   const showNotification = (type, message) => {
     setNotification({ type, message, id: Date.now() });
   };
-
   useEffect(() => {
     loadShipments();
     const interval = setInterval(loadShipments, 30000);
     return () => clearInterval(interval);
   }, []);
-
   useEffect(() => {
     if (urlOrderId) {
       fetchOrderForCreate(urlOrderId);
     }
   }, [urlOrderId]);
-
   const fetchOrderForCreate = async (orderId) => {
     try {
       const res = await api.get(`/orders/${orderId}`);
       const order = res.data.order || res.data;
 
       setSelectedOrderForCreate(order);
-      setCreateForm({ kurir: "", layanan: "", nomorResi: "", biaya: "" });
+      setCreateForm({
+        kurir: "",
+        layanan: "",
+        nomorResi: "",
+        biaya: order.ongkosKirim || 0, // Otomatis dari ongkosKirim order
+      });
       setShowCreateModal(true);
     } catch (err) {
       console.error("Fetch order error:", err);
@@ -131,26 +125,19 @@ function AdminShipments() {
       setSearchParams({});
     }
   };
-
   const loadShipments = async () => {
     try {
       setLoading(true);
-
       const ordersResponse = await api.get("/orders/admin/all", {
         params: { limit: 1000 },
       });
-
       const orders =
         ordersResponse.data.data || ordersResponse.data.orders || [];
       const shipmentsData = [];
-
       for (const order of orders) {
         try {
-          const shipmentRes = await api.get(
-            `/shipments/order/${order.id}/track`
-          );
+          const shipmentRes = await api.get(`/shipments/order/${order.id}`);
           const shipment = shipmentRes.data.shipment || shipmentRes.data;
-
           if (shipment) {
             shipmentsData.push({
               ...shipment,
@@ -173,13 +160,11 @@ function AdminShipments() {
           continue;
         }
       }
-
       shipmentsData.sort((a, b) => {
         const dateA = new Date(a.dibuatPada || a.createdAt || 0);
         const dateB = new Date(b.dibuatPada || b.createdAt || 0);
         return dateB - dateA;
       });
-
       setShipments(shipmentsData);
     } catch (err) {
       console.error("Gagal memuat pengiriman:", err);
@@ -188,7 +173,6 @@ function AdminShipments() {
       setLoading(false);
     }
   };
-
   const mapStatusToConfig = (status) => {
     const normalized = status?.toString().toUpperCase();
     const config = {
@@ -236,7 +220,6 @@ function AdminShipments() {
       }
     );
   };
-
   const formatDate = (dateString) => {
     if (!dateString) return "-";
     try {
@@ -251,7 +234,6 @@ function AdminShipments() {
       return "-";
     }
   };
-
   const filteredShipments = shipments.filter((s) => {
     if (filterStatus !== "all" && s.status !== filterStatus) return false;
     if (
@@ -271,12 +253,10 @@ function AdminShipments() {
     }
     return true;
   });
-
   const handleViewDetail = (shipment) => {
     setSelectedShipment(shipment);
     setShowDetailModal(true);
   };
-
   const handleCreateShipment = async (e) => {
     e.preventDefault();
 
@@ -284,10 +264,9 @@ function AdminShipments() {
       showNotification("warning", "Kurir, nomor resi, dan biaya wajib diisi");
       return;
     }
-
     setSubmitting(true);
     try {
-      const response = await api.post("/shipments", {
+      await api.post("/shipments/manual", {
         orderId: selectedOrderForCreate.id,
         kurir: createForm.kurir,
         layanan: createForm.layanan,
@@ -312,7 +291,6 @@ function AdminShipments() {
       setSubmitting(false);
     }
   };
-
   const openUpdateModal = (shipment) => {
     setSelectedShipment(shipment);
     setUpdateForm({
@@ -324,15 +302,13 @@ function AdminShipments() {
     });
     setShowUpdateModal(true);
   };
-
   const handleUpdateShipment = async (e) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
-      await api.put(`/shipments/${selectedShipment.id}/status`, {
-        status: updateForm.status,
-        nomorResi: updateForm.nomorResi || undefined,
+      await api.put(`/shipments/${selectedShipment.id}/tracking`, {
+        nomorResi: updateForm.nomorResi,
       });
 
       showNotification("success", "Status pengiriman berhasil diupdate!");
@@ -348,10 +324,12 @@ function AdminShipments() {
       setSubmitting(false);
     }
   };
-
-  const handleSyncTracking = async (shipmentId) => {
+  const handleSyncTracking = async (shipment) => {
     try {
-      await api.get(`/shipments/${shipmentId}/tracking`);
+      await api.get(
+        `/shipments/tracking/biteship/${shipment.nomorResi}/${shipment.kurir}`
+      );
+
       showNotification("success", "Sync tracking berhasil!");
       loadShipments();
     } catch (err) {
@@ -373,7 +351,6 @@ function AdminShipments() {
           onClose={() => setNotification(null)}
         />
       )}
-
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
@@ -410,7 +387,6 @@ function AdminShipments() {
             </div>
           </div>
         </div>
-
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-2xl p-5 shadow-md border-l-4 border-[#cb5094] hover:shadow-xl transition-shadow">
@@ -463,7 +439,6 @@ function AdminShipments() {
             </div>
           </div>
         </div>
-
         {/* Filter */}
         <div className="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 md:p-5">
           <div className="flex items-center justify-between mb-4">
@@ -482,7 +457,6 @@ function AdminShipments() {
               Filter
             </button>
           </div>
-
           <div
             className={`${
               showMobileFilter ? "block" : "hidden lg:block"
@@ -499,7 +473,6 @@ function AdminShipments() {
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#cb5094]"
                 />
               </div>
-
               <div className="relative">
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <select
@@ -515,7 +488,6 @@ function AdminShipments() {
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
-
               <div className="relative">
                 <Truck className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <select
@@ -534,7 +506,6 @@ function AdminShipments() {
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
             </div>
-
             <div className="pt-4 text-sm text-gray-600">
               Menampilkan{" "}
               <span className="font-bold text-[#cb5094]">
@@ -544,7 +515,6 @@ function AdminShipments() {
             </div>
           </div>
         </div>
-
         {/* List Pengiriman */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -577,7 +547,6 @@ function AdminShipments() {
               {filteredShipments.map((shipment) => {
                 const statusConfig = mapStatusToConfig(shipment.status);
                 const StatusIcon = statusConfig.icon;
-
                 return (
                   <div
                     key={shipment.id}
@@ -604,7 +573,6 @@ function AdminShipments() {
                         </span>
                       </div>
                     </div>
-
                     <div className="space-y-2 text-sm mb-4">
                       <p>
                         <span className="font-medium">Kurir:</span>{" "}
@@ -625,7 +593,6 @@ function AdminShipments() {
                         </p>
                       )}
                     </div>
-
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleViewDetail(shipment)}
@@ -654,7 +621,6 @@ function AdminShipments() {
                 );
               })}
             </div>
-
             {/* Desktop Table View */}
             <div className="hidden lg:block bg-white rounded-3xl shadow-sm border border-pink-100 overflow-hidden">
               <div className="overflow-x-auto">
@@ -691,7 +657,6 @@ function AdminShipments() {
                     {filteredShipments.map((shipment) => {
                       const statusConfig = mapStatusToConfig(shipment.status);
                       const StatusIcon = statusConfig.icon;
-
                       return (
                         <tr
                           key={shipment.id}
@@ -788,7 +753,6 @@ function AdminShipments() {
             </div>
           </>
         )}
-
         {/* Modal Buat Pengiriman */}
         {showCreateModal && selectedOrderForCreate && (
           <div
@@ -808,7 +772,6 @@ function AdminShipments() {
                   Pesanan #{selectedOrderForCreate.nomorOrder}
                 </p>
               </div>
-
               <form onSubmit={handleCreateShipment} className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -831,7 +794,6 @@ function AdminShipments() {
                     <option>Tiki</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
                     Layanan
@@ -846,7 +808,6 @@ function AdminShipments() {
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#cb5094] focus:outline-none"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
                     Nomor Resi *
@@ -865,23 +826,20 @@ function AdminShipments() {
                     required
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Biaya Pengiriman (Rp) *
+                    Biaya Pengiriman (Rp)
                   </label>
                   <input
                     type="number"
-                    placeholder="15000"
                     value={createForm.biaya}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, biaya: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#cb5094] focus:outline-none"
-                    required
+                    readOnly
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 cursor-not-allowed"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Otomatis dari ongkir saat checkout
+                  </p>
                 </div>
-
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
@@ -906,7 +864,6 @@ function AdminShipments() {
             </div>
           </div>
         )}
-
         {/* Modal Update Status */}
         {showUpdateModal && selectedShipment && (
           <div
@@ -923,7 +880,6 @@ function AdminShipments() {
                   Resi: {selectedShipment.nomorResi || "Belum ada"}
                 </p>
               </div>
-
               <form onSubmit={handleUpdateShipment} className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -947,7 +903,6 @@ function AdminShipments() {
                     )}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
                     Nomor Resi (opsional)
@@ -965,7 +920,6 @@ function AdminShipments() {
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#cb5094] focus:outline-none"
                   />
                 </div>
-
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
@@ -987,7 +941,6 @@ function AdminShipments() {
             </div>
           </div>
         )}
-
         {/* Modal Detail Pengiriman */}
         {showDetailModal && selectedShipment && (
           <div
@@ -1012,7 +965,6 @@ function AdminShipments() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
               <div className="p-8 space-y-8">
                 <div className="grid md:grid-cols-2 gap-8">
                   <div>
@@ -1082,7 +1034,6 @@ function AdminShipments() {
                       )}
                     </div>
                   </div>
-
                   <div>
                     <h3 className="font-bold text-xl text-gray-900 mb-4">
                       Informasi Order
@@ -1115,7 +1066,6 @@ function AdminShipments() {
                     </div>
                   </div>
                 </div>
-
                 {selectedShipment.courierTrackingUrl && (
                   <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-6 text-center">
                     <a
@@ -1137,5 +1087,4 @@ function AdminShipments() {
     </div>
   );
 }
-
 export default AdminShipments;

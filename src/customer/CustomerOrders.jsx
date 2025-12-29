@@ -31,6 +31,16 @@ function CustomerOrders() {
 
   useEffect(() => {
     loadOrders();
+
+    const handleOrdersUpdate = () => {
+      loadOrders();
+    };
+
+    window.addEventListener("ordersUpdated", handleOrdersUpdate);
+
+    return () => {
+      window.removeEventListener("ordersUpdated", handleOrdersUpdate);
+    };
   }, []);
 
   const loadOrders = async () => {
@@ -288,9 +298,10 @@ function CustomerOrders() {
 
   const handleTrackOrder = (order) => {
     if (order?.orderId) {
-      navigate(`/customer/tracking/${order.orderId}`);
+      navigate(`/customer/orders/${order.orderId}/tracking`);
     }
   };
+
 
   const handleDeleteOrder = async (order) => {
     // Validasi: hanya bisa batalkan jika status PENDING_PAYMENT
@@ -346,8 +357,8 @@ function CustomerOrders() {
   const filterOptions = [
     { value: "all", label: "Semua" },
     { value: "pending", label: "Bayar" },
-    { value: "confirmed", label: "Proses" },
-    { value: "shipping", label: "Kirim" },
+    { value: "confirmed", label: "Diproses" },
+    { value: "shipping", label: "Dikirim" },
     { value: "delivered", label: "Selesai" },
     { value: "cancelled", label: "Batal" },
   ];
@@ -820,3 +831,4 @@ function CustomerOrders() {
 }
 
 export default CustomerOrders;
+

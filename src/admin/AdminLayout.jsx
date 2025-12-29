@@ -1,16 +1,23 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
-  PackageSearch, FolderTree, ClipboardList, CreditCard, LogOut, Home, Menu, X
-} from 'lucide-react';
+  PackageSearch,
+  FolderTree,
+  ClipboardList,
+  CreditCard,
+  LogOut,
+  Home,
+  Menu,
+  X,
+} from "lucide-react";
 
 function AdminLayout({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [adminData, setAdminData] = useState({
-    nama: 'Admin',
-    email: 'admin@medinastuff.com',
-    role: 'ADMIN'
+    nama: "Admin",
+    email: "admin@medinastuff.com",
+    role: "ADMIN",
   });
 
   const navigate = useNavigate();
@@ -19,36 +26,35 @@ function AdminLayout({ children }) {
   useEffect(() => {
     const checkAuth = () => {
       try {
-        const token = localStorage.getItem('accessToken');
-        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem("accessToken");
+        const storedUser = localStorage.getItem("user");
 
         if (!token || !storedUser) {
-          navigate('/login', { replace: true });
+          navigate("/login", { replace: true });
           return;
         }
 
         const user = JSON.parse(storedUser);
-        const userRole = (user.role || '').toString().trim().toUpperCase();
+        const userRole = (user.role || "").toString().trim().toUpperCase();
 
-        if (userRole !== 'ADMIN') {
-          if (userRole === 'CUSTOMER') {
-            navigate('/customer/products', { replace: true });
+        if (userRole !== "ADMIN") {
+          if (userRole === "CUSTOMER") {
+            navigate("/customer/products", { replace: true });
           } else {
-            navigate('/login', { replace: true });
+            navigate("/login", { replace: true });
           }
           return;
         }
 
         setAdminData({
-          nama: user.nama || 'Admin',
-          email: user.email || 'admin@medinastuff.com',
-          role: userRole
+          nama: user.nama || "Admin",
+          email: user.email || "admin@medinastuff.com",
+          role: userRole,
         });
-
       } catch (err) {
-        console.error('Error parsing user data:', err);
+        console.error("Error parsing user data:", err);
         localStorage.clear();
-        navigate('/login', { replace: true });
+        navigate("/login", { replace: true });
       } finally {
         setIsLoading(false);
       }
@@ -59,11 +65,16 @@ function AdminLayout({ children }) {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/login', { replace: true });
+    navigate("/login", { replace: true });
   };
 
   const getInitials = (name) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const isActiveRoute = (path) => {
@@ -82,11 +93,11 @@ function AdminLayout({ children }) {
   }
 
   const menuItems = [
-    { path: '/admin/dashboard', icon: Home, label: 'Beranda' },
-    { path: '/admin/products', icon: PackageSearch, label: 'Produk' },
-    { path: '/admin/categories', icon: FolderTree, label: 'Kategori' },
-    { path: '/admin/orders', icon: ClipboardList, label: 'Pesanan' },
-    { path: '/admin/transactions', icon: CreditCard, label: 'Transaksi' },
+    { path: "/admin/dashboard", icon: Home, label: "Beranda" },
+    { path: "/admin/products", icon: PackageSearch, label: "Produk" },
+    { path: "/admin/categories", icon: FolderTree, label: "Kategori" },
+    { path: "/admin/orders", icon: ClipboardList, label: "Pesanan" },
+    { path: "/admin/transactions", icon: CreditCard, label: "Transaksi" },
   ];
 
   return (
@@ -101,18 +112,25 @@ function AdminLayout({ children }) {
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 className="lg:hidden p-2 hover:bg-pink-50 rounded-lg transition"
               >
-                {isSidebarOpen ? <X className="w-6 h-6 text-[#cb5094]" /> : <Menu className="w-6 h-6 text-[#cb5094]" />}
+                {isSidebarOpen ? (
+                  <X className="w-6 h-6 text-[#cb5094]" />
+                ) : (
+                  <Menu className="w-6 h-6 text-[#cb5094]" />
+                )}
               </button>
 
-              <a href="/admin/dashboard" className="flex items-center space-x-3 group">
+              <a
+                href="/admin/dashboard"
+                className="flex items-center space-x-3 group"
+              >
                 <div className="relative w-12 h-12 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 overflow-hidden">
                   <img
                     src="/logo.png"
                     alt="MyMedina"
                     className="w-8 h-8 object-contain z-10"
                     onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextElementSibling.style.display = 'flex';
+                      e.target.style.display = "none";
+                      e.target.nextElementSibling.style.display = "flex";
                     }}
                   />
                   <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-white z-10 hidden">
@@ -120,7 +138,9 @@ function AdminLayout({ children }) {
                   </span>
                 </div>
                 <div className="hidden sm:block">
-                  <div className="text-base font-bold text-gray-800">MyMedina</div>
+                  <div className="text-base font-bold text-gray-800">
+                    MyMedina
+                  </div>
                   <div className="text-xs text-gray-500">by Medina Stuff</div>
                 </div>
               </a>
@@ -129,10 +149,14 @@ function AdminLayout({ children }) {
             <div className="flex items-center space-x-4">
               <div className="hidden sm:flex items-center space-x-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-md">
-                  <span className="text-sm font-bold text-white">{getInitials(adminData.nama)}</span>
+                  <span className="text-sm font-bold text-white">
+                    {getInitials(adminData.nama)}
+                  </span>
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-gray-800">{adminData.nama}</div>
+                  <div className="text-sm font-bold text-gray-800">
+                    {adminData.nama}
+                  </div>
                 </div>
               </div>
             </div>
@@ -156,8 +180,8 @@ function AdminLayout({ children }) {
                     onClick={() => navigate(item.path)}
                     className={`w-full flex items-center space-x-3 px-5 py-4 rounded-2xl transition-all duration-200 font-medium ${
                       isActive
-                        ? 'bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg'
-                        : 'text-gray-700 hover:bg-pink-50'
+                        ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
+                        : "text-gray-700 hover:bg-pink-50"
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -181,9 +205,11 @@ function AdminLayout({ children }) {
         </aside>
 
         {/* Menu Hamburger Mobile - Hanya Logout */}
-        <aside className={`lg:hidden fixed top-16 left-0 z-40 w-64 bg-white shadow-2xl transform transition-transform duration-300 h-auto ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
+        <aside
+          className={`lg:hidden fixed top-16 left-0 z-40 w-64 bg-white shadow-2xl transform transition-transform duration-300 h-auto ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
           <div className="p-6">
             <button
               onClick={() => {
@@ -200,13 +226,14 @@ function AdminLayout({ children }) {
 
         {/* Overlay Sidebar Mobile */}
         {isSidebarOpen && (
-          <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+          <div
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
         )}
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-64">
-            {children || <Outlet />}
-        </main>
+        <main className="flex-1 lg:ml-64">{children || <Outlet />}</main>
       </div>
 
       {/* Bottom Navigation Mobile - Tanpa Logout */}
@@ -221,7 +248,7 @@ function AdminLayout({ children }) {
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={`flex flex-col items-center justify-center space-y-1 relative transition-all duration-200 ${
-                  isActive ? 'text-[#cb5094]' : 'text-gray-600'
+                  isActive ? "text-[#cb5094]" : "text-gray-600"
                 }`}
               >
                 <Icon className="w-6 h-6" />

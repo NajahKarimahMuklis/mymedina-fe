@@ -25,6 +25,8 @@ import CustomerOrders from "./customer/CustomerOrders";
 import CustomerCheckout from "./customer/CustomerCheckout";
 import CustomerPayment from "./customer/CustomerPayment";
 import CustomerProfile from "./customer/CustomerProfile";
+import CustomerTracking from "./customer/CustomerTracking";
+
 
 // Admin Pages
 import AdminDashboard from "./admin/AdminDashboard";
@@ -65,6 +67,10 @@ function App() {
             <Route path="orders" element={<CustomerOrders />} />
             <Route path="checkout" element={<CustomerCheckout />} />
             <Route path="payment/:orderId" element={<CustomerPayment />} />
+            <Route
+              path="orders/:orderId/tracking"
+              element={<CustomerTracking />}
+            />
             <Route path="profile" element={<CustomerProfile />} />
           </Route>
         </Route>

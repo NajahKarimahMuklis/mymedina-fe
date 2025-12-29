@@ -92,31 +92,7 @@ function OwnerLayout({ children }) {
       icon: DollarSign,
       label: "Penjualan",
       description: "Laporan keuangan",
-    },
-    {
-      tab: "customers",
-      icon: Users,
-      label: "Pelanggan",
-      description: "Data & perilaku",
-    },
-    {
-      tab: "orders",
-      icon: ShoppingCart,
-      label: "Pesanan",
-      description: "Status & tracking",
-    },
-    {
-      tab: "inventory",
-      icon: Package,
-      label: "Inventori",
-      description: "Stok produk",
-    },
-    {
-      tab: "category",
-      icon: FileText,
-      label: "Kategori",
-      description: "Performa kategori",
-    },
+    }
   ];
 
   // Tentukan tab aktif berdasarkan URL query ?tab=

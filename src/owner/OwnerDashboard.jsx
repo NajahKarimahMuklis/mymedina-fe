@@ -2,21 +2,20 @@ import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
   DollarSign,
-  ShoppingCart,
-  CreditCard,
-  TrendingUp,
-  Users,
-  AlertCircle,
+ ShoppingCart,
+ 
   BarChart2,
-  Clock,
-  CheckCircle,
-  RefreshCw,
+  TrendingUp,
   Sparkles,
   Download,
   Filter,
   X,
-  FileText,
-  Package,
+  RefreshCw,
+  CheckCircle,
+  AlertCircle,
+  LogOut,
+
+  Clock,
 } from "lucide-react";
 import {
   LineChart,
@@ -143,25 +142,22 @@ function OwnerDashboard() {
   const [dashboardData, setDashboardData] = useState({
     totalRevenue: 0,
     totalOrders: 0,
-    totalTransactions: 0,
     pendingOrders: 0,
     completedOrders: 0,
     monthlyRevenue: [],
-    recentTransactions: [],
     topProducts: [],
   });
 
   const [salesReport, setSalesReport] = useState(null);
-  const [customersReport, setCustomersReport] = useState(null);
-  const [ordersReport, setOrdersReport] = useState(null);
-  const [inventoryReport, setInventoryReport] = useState(null);
-  const [categoryReport, setCategoryReport] = useState(null);
+
+  const defaultStart = new Date();
+  defaultStart.setFullYear(defaultStart.getFullYear() - 1);
+  const defaultStartStr = defaultStart.toISOString().split("T")[0];
+  const defaultEndStr = new Date().toISOString().split("T")[0];
 
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().setDate(new Date().getDate() - 30))
-      .toISOString()
-      .split("T")[0],
-    endDate: new Date().toISOString().split("T")[0],
+    startDate: "",
+    endDate: "",
   });
 
   const [loading, setLoading] = useState(true);
@@ -173,99 +169,63 @@ function OwnerDashboard() {
   };
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  useEffect(() => {
-    if (currentTab !== "overview") {
+    if (currentTab === "overview" || currentTab === "sales") {
+      loadDashboardData();
+    } else {
       loadReportData();
     }
-  }, [currentTab]);
+  }, [currentTab, dateRange]);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // State untuk popup logout
 
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    try {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("cart"); // optional: bersihkan cart
+      window.location.href = "/";
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false);
+  };
   const loadDashboardData = async () => {
     try {
       setLoading(true);
 
-      const ordersResponse = await api.get("/orders/admin/all", {
-        params: { page: 1, limit: 1000 }, // ✅ Tambahkan params seperti di AdminOrders
+      const ordersResponse = await api.get("orders/admin/all", {
+        params: { page: 1, limit: 1000 },
       });
 
-      const orders = ordersResponse.data.orders || [];
+      const orders =
+        ordersResponse.data.data || ordersResponse.data.orders || [];
 
-      console.log("📦 ORDERS:", orders.length, orders); // ✅ CEK INI
-
-      const transactionsPromises = orders.map(async (order) => {
-        try {
-          const paymentResponse = await api.get(`/payments/order/${order.id}`);
-          const payments = paymentResponse.data.payments || [];
-          const mainPayment = payments[0];
-
-          if (mainPayment) {
-            console.log("💳 PAYMENT:", mainPayment); // ✅ CEK INI
-            return {
-              ...mainPayment,
-              order: {
-                id: order.id,
-                nomorOrder: order.nomorOrder,
-                namaPenerima: order.namaPenerima,
-                total: order.total,
-                status: order.status,
-                dibuatPada: order.dibuatPada,
-              },
-            };
-          }
-        } catch (err) {
-          console.error("❌ Payment error:", err); // ✅ CEK INI
-          return null;
-        }
-      });
-
-      const transactions = (await Promise.all(transactionsPromises)).filter(
-        Boolean
+      const revenueStatuses = ["PAID", "PROCESSING", "SHIPPED", "COMPLETED"];
+      const paidOrders = orders.filter((o) =>
+        revenueStatuses.includes(o.status)
       );
 
-      console.log("💰 TRANSACTIONS:", transactions.length, transactions); // ✅ CEK INI PENTING!
-
-      // Cek field yang ada di transaction
-      if (transactions.length > 0) {
-        console.log(
-          "📋 Sample transaction fields:",
-          Object.keys(transactions[0])
-        );
-        console.log(
-          "💵 Amount field:",
-          transactions[0].jumlah || transactions[0].amount
-        );
-        console.log(
-          "📅 Date field:",
-          transactions[0].dibuatPada || transactions[0].createdAt
-        );
-        console.log("✅ Status:", transactions[0].status);
-      }
-
-      // Status sukses yang dianggap revenue
-      const successfulStatuses = ["SETTLED", "CAPTURED", "SUCCESS", "PAID"];
-
-      // Total Revenue dari transaksi sukses
-      const totalRevenue = transactions
-        .filter((t) => successfulStatuses.includes(t.status))
-        .reduce((sum, t) => sum + Number(t.jumlah || t.amount || 0), 0);
-
-      console.log("💵 TOTAL REVENUE:", totalRevenue); // ✅ CEK INI
+      // Calculate total revenue
+      const totalRevenue = paidOrders.reduce(
+        (sum, o) => sum + Number(o.total || 0),
+        0
+      );
 
       const totalOrders = orders.length;
-      const pendingOrders = orders.filter(
-        (o) =>
-          o.status === "PENDING_PAYMENT" ||
-          o.status === "PAID" ||
-          o.status === "PROCESSING"
+      const pendingOrders = orders.filter((o) =>
+        ["PENDING_PAYMENT", "PAID", "PROCESSING"].includes(o.status)
       ).length;
       const completedOrders = orders.filter(
         (o) => o.status === "COMPLETED"
       ).length;
-      const totalTransactions = transactions.length;
 
-      // Monthly Revenue - lebih fleksibel
+      // Monthly revenue calculation
       const monthlyData = [];
       const currentDate = new Date();
       for (let i = 5; i >= 0; i--) {
@@ -279,35 +239,26 @@ function OwnerDashboard() {
           year: "numeric",
         });
 
-        const revenue = transactions
-          .filter((t) => {
-            if (!successfulStatuses.includes(t.status)) return false;
-
-            // ✅ FIX: Gunakan field yang benar dari backend
-            const dateStr = t.dibuatPada || t.createdAt || t.updatedAt;
-            if (!dateStr) return false;
-
-            const transDate = new Date(dateStr);
+        const monthRevenue = paidOrders
+          .filter((o) => {
+            const orderDate = new Date(o.dibuatPada || o.createdAt);
             return (
-              transDate.getMonth() === date.getMonth() &&
-              transDate.getFullYear() === date.getFullYear()
+              orderDate.getMonth() === date.getMonth() &&
+              orderDate.getFullYear() === date.getFullYear()
             );
           })
-          .reduce((sum, t) => sum + Number(t.jumlah || t.amount || 0), 0);
+          .reduce((sum, o) => sum + Number(o.total || 0), 0);
 
-        monthlyData.push({ name: monthName, revenue });
+        monthlyData.push({ name: monthName, revenue: monthRevenue });
       }
 
-      const recentTransactions = transactions
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 5);
-
+      // Top products logic
       const productSales = {};
-      orders.forEach((order) => {
+      paidOrders.forEach((order) => {
         order.items.forEach((item) => {
-          const key = item.namaProduk;
-          productSales[key] =
-            (productSales[key] || 0) + item.kuantitas * item.hargaSnapshot;
+          const name = item.namaProduk || item.nama || "Produk Tidak Diketahui";
+          productSales[name] =
+            (productSales[name] || 0) + item.kuantitas * item.hargaSnapshot;
         });
       });
 
@@ -319,16 +270,69 @@ function OwnerDashboard() {
       setDashboardData({
         totalRevenue,
         totalOrders,
-        totalTransactions,
         pendingOrders,
         completedOrders,
         monthlyRevenue: monthlyData,
-        recentTransactions,
         topProducts,
       });
+
+      // Include payment methods when filtering for sales
+      if (currentTab === "sales") {
+        let filteredOrders = paidOrders;
+
+        if (dateRange.startDate || dateRange.endDate) {
+          const start = dateRange.startDate
+            ? new Date(dateRange.startDate)
+            : null;
+          const end = dateRange.endDate ? new Date(dateRange.endDate) : null;
+          if (end) end.setHours(23, 59, 59, 999);
+
+          filteredOrders = paidOrders.filter((o) => {
+            const orderDate = new Date(o.dibuatPada || o.createdAt);
+            if (start && orderDate < start) return false;
+            if (end && orderDate > end) return false;
+            return true;
+          });
+        }
+
+        const salesTotal = filteredOrders.reduce(
+          (sum, o) => sum + Number(o.total || 0),
+          0
+        );
+        const salesCount = filteredOrders.length;
+        const averageOrderValue =
+          salesCount > 0 ? Math.round(salesTotal / salesCount) : 0;
+
+        const dailyMap = {};
+        filteredOrders.forEach((o) => {
+          const dateStr = new Date(
+            o.dibuatPada || o.createdAt
+          ).toLocaleDateString("id-ID");
+          dailyMap[dateStr] = (dailyMap[dateStr] || 0) + Number(o.total || 0);
+        });
+
+        const salesByDate = Object.entries(dailyMap)
+          .map(([date, sales]) => ({ date, sales }))
+          .sort(
+            (a, b) =>
+              new Date(a.date.split("/").reverse().join("-")) -
+              new Date(b.date.split("/").reverse().join("-"))
+          );
+
+        setSalesReport({
+          totalSales: salesTotal,
+          totalOrders: salesCount,
+          averageOrderValue: averageOrderValue,
+          salesByDate,
+          topSellingProducts: topProducts,
+          paymentMethods: [
+            ...new Set(filteredOrders.map((o) => o.metodePembayaran)),
+          ], // Extract unique payment methods
+        });
+      }
     } catch (err) {
-      console.error("Gagal memuat data dashboard:", err);
-      showNotification("error", "Gagal memuat data dashboard");
+      console.error("Gagal memuat data:", err);
+      showNotification("error", "Gagal memuat data");
     } finally {
       setLoading(false);
     }
@@ -337,47 +341,18 @@ function OwnerDashboard() {
   const loadReportData = async () => {
     try {
       setReportLoading(true);
-      const { startDate, endDate } = dateRange;
+
+      // SELALU kirim startDate dan endDate (wajib dari backend)
+      const start = dateRange.startDate || defaultStartStr;
+      const end = dateRange.endDate || defaultEndStr;
+
+      const params = { startDate: start, endDate: end };
 
       switch (currentTab) {
-        case "sales":
-          const salesResponse = await api.get(
-            `/owner/reports/sales?startDate=${startDate}&endDate=${endDate}`
-          );
-
-          console.log("📊 Raw Sales Response:", salesResponse.data);
-
-          const transformedSalesData = {
-            totalSales: salesResponse.data.summary?.totalRevenue || 0,
-            totalOrders: salesResponse.data.summary?.totalTransactions || 0,
-            averageOrderValue: salesResponse.data.summary?.totalTransactions
-              ? salesResponse.data.summary.totalRevenue /
-                salesResponse.data.summary.totalTransactions
-              : 0,
-            salesByDate:
-              salesResponse.data.dailySales?.map((item) => ({
-                date: item.date,
-                sales: item.total,
-              })) || [],
-            topSellingProducts:
-              salesResponse.data.productSales?.slice(0, 5).map((item) => ({
-                product: item.productName,
-                quantity: item.quantitySold,
-                revenue: item.totalRevenue,
-              })) || [],
-          };
-
-          console.log("✅ Transformed Sales Data:", transformedSalesData);
-          setSalesReport(transformedSalesData);
-          break;
-
         case "customers":
-          const customersResponse = await api.get(
-            `/owner/reports/customers?startDate=${startDate}&endDate=${endDate}`
-          );
-
-          console.log("👥 Raw Customers Response:", customersResponse.data);
-
+          const customersResponse = await api.get("/owner/reports/customers", {
+            params,
+          });
           const transformedCustomerData = {
             totalCustomers: customersResponse.data.summary?.totalCustomers || 0,
             newCustomers: customersResponse.data.summary?.newCustomers || 0,
@@ -387,7 +362,10 @@ function OwnerDashboard() {
               customersResponse.data.topCustomers
                 ?.slice(0, 10)
                 .map((customer) => ({
-                  name: `User #${customer.userId}`,
+                  name:
+                    customer.nama ||
+                    customer.email ||
+                    `User #${customer.userId}`,
                   totalOrders: customer.orderCount,
                   totalSpent: customer.totalSpent,
                 })) || [],
@@ -397,21 +375,17 @@ function OwnerDashboard() {
                 count: item.count,
               })) || [],
           };
-
-          console.log("✅ Transformed Customer Data:", transformedCustomerData);
           setCustomersReport(transformedCustomerData);
           break;
 
         case "orders":
-          const ordersResponse = await api.get(
-            `/owner/reports/orders?startDate=${startDate}&endDate=${endDate}`
-          );
-
-          console.log("📦 Raw Orders Response:", ordersResponse.data);
-
-          const totalOrders = ordersResponse.data.summary?.totalOrders || 0;
+          const ordersResponse = await api.get("/owner/reports/orders", {
+            params,
+          });
+          const totalOrdersReport =
+            ordersResponse.data.summary?.totalOrders || 0;
           const transformedOrdersData = {
-            totalOrders: totalOrders,
+            totalOrders: totalOrdersReport,
             pendingOrders:
               ordersResponse.data.ordersByStatus?.find(
                 (s) => s.status === "PENDING_PAYMENT"
@@ -429,8 +403,8 @@ function OwnerDashboard() {
                 status: item.status,
                 count: item.count,
                 percentage:
-                  totalOrders > 0
-                    ? ((item.count / totalOrders) * 100).toFixed(1)
+                  totalOrdersReport > 0
+                    ? ((item.count / totalOrdersReport) * 100).toFixed(1)
                     : 0,
               })) || [],
             orderTrend:
@@ -439,25 +413,19 @@ function OwnerDashboard() {
                 orders: item.count,
               })) || [],
           };
-
-          console.log("✅ Transformed Orders Data:", transformedOrdersData);
           setOrdersReport(transformedOrdersData);
           break;
 
         case "inventory":
           const inventoryResponse = await api.get("/owner/reports/inventory");
-
-          console.log("📦 Raw Inventory Response:", inventoryResponse.data);
-
           const transformedInventoryData = {
             totalProducts: inventoryResponse.data.summary?.totalProducts || 0,
             lowStock: inventoryResponse.data.summary?.lowStockProducts || 0,
             outOfStock: inventoryResponse.data.summary?.outOfStockProducts || 0,
             products:
               inventoryResponse.data.products?.map((product) => ({
-                name: product.name,
+                name: product.name || "Produk Tidak Diketahui",
                 stock: product.totalStock,
-                sold: 0,
                 status:
                   product.stockStatus === "OUT_OF_STOCK"
                     ? "out"
@@ -466,21 +434,13 @@ function OwnerDashboard() {
                     : "normal",
               })) || [],
           };
-
-          console.log(
-            "✅ Transformed Inventory Data:",
-            transformedInventoryData
-          );
           setInventoryReport(transformedInventoryData);
           break;
 
         case "category":
-          const categoryResponse = await api.get(
-            `/owner/reports/category?startDate=${startDate}&endDate=${endDate}`
-          );
-
-          console.log("📊 Raw Category Response:", categoryResponse.data);
-
+          const categoryResponse = await api.get("/owner/reports/category", {
+            params,
+          });
           const totalCategoryRevenue =
             categoryResponse.data.categories?.reduce(
               (sum, cat) => sum + cat.revenue,
@@ -490,7 +450,7 @@ function OwnerDashboard() {
           const transformedCategoryData = {
             categories:
               categoryResponse.data.categories?.map((cat) => ({
-                name: cat.categoryName,
+                name: cat.categoryName || "Tanpa Kategori",
                 sales: cat.revenue,
                 orders: cat.itemsSold,
                 percentage: (
@@ -500,56 +460,36 @@ function OwnerDashboard() {
               })) || [],
             categoryTrend: [],
           };
-
-          console.log("✅ Transformed Category Data:", transformedCategoryData);
           setCategoryReport(transformedCategoryData);
           break;
       }
     } catch (err) {
       console.error("❌ Gagal memuat laporan:", err);
-      console.error("Error details:", err.response?.data);
-      showNotification(
-        "error",
-        "Gagal memuat laporan: " + (err.response?.data?.message || err.message)
-      );
+      showNotification("error", "Gagal memuat laporan");
     } finally {
       setReportLoading(false);
     }
   };
 
-  const handleExportReport = async (reportType) => {
+  const handleExportReport = async () => {
     try {
-      const { startDate, endDate } = dateRange;
-      let endpoint = "";
+      const start = dateRange.startDate || defaultStartStr;
+      const end = dateRange.endDate || defaultEndStr;
 
-      switch (reportType) {
-        case "sales":
-          endpoint = `/owner/reports/sales/export?startDate=${startDate}&endDate=${endDate}`;
-          break;
-        case "customers":
-          endpoint = `/owner/reports/customers/export?startDate=${startDate}&endDate=${endDate}`;
-          break;
-        case "orders":
-          endpoint = `/owner/reports/orders/export?startDate=${startDate}&endDate=${endDate}`;
-          break;
-        case "inventory":
-          endpoint = `/owner/reports/inventory/export`;
-          break;
-        case "category":
-          endpoint = `/owner/reports/category/export?startDate=${startDate}&endDate=${endDate}`;
-          break;
-      }
+      const response = await api.get("/owner/reports/sales/export", {
+        params: { startDate: start, endDate: end },
+        responseType: "blob",
+      });
 
-      const response = await api.get(endpoint, { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `laporan-${reportType}-${Date.now()}.csv`);
+      link.setAttribute("download", `laporan-sales-${Date.now()}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
 
-      showNotification("success", `Laporan ${reportType} berhasil diexport!`);
+      showNotification("success", "Laporan sales berhasil diexport!");
     } catch (err) {
       console.error("Gagal export laporan:", err);
       showNotification("error", "Gagal export laporan");
@@ -557,26 +497,41 @@ function OwnerDashboard() {
   };
 
   const applyDateRange = () => {
-    loadReportData();
+    if (currentTab === "overview" || currentTab === "sales") {
+      loadDashboardData();
+    } else {
+      loadReportData();
+    }
     showNotification("success", "Filter tanggal diterapkan");
   };
 
   const resetDateRange = () => {
-    setDateRange({
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30))
-        .toISOString()
-        .split("T")[0],
-      endDate: new Date().toISOString().split("T")[0],
-    });
-    setTimeout(() => loadReportData(), 100);
+    setDateRange({ startDate: "", endDate: "" });
+    if (currentTab === "overview" || currentTab === "sales") {
+      loadDashboardData();
+    } else {
+      loadReportData();
+    }
   };
 
-  if (loading) {
+  // Loading state
+  if (loading && (currentTab === "overview" || currentTab === "sales")) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-pink-200 border-t-[#cb5094] rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Memuat data dashboard...</p>
+          <p className="text-gray-600 font-medium">Memuat data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (reportLoading && !["overview", "sales"].includes(currentTab)) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-pink-200 border-t-[#cb5094] rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Memuat laporan...</p>
         </div>
       </div>
     );
@@ -598,7 +553,7 @@ function OwnerDashboard() {
         <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 lg:w-14 lg:h-14 bg-[#cb5094] rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
+              <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-2xl flex items-center justify-center shadow-md">
                 <BarChart2 className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
               </div>
               <div>
@@ -611,8 +566,12 @@ function OwnerDashboard() {
               </div>
             </div>
             <button
-              onClick={loadDashboardData}
-              className="bg-[#cb5094] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#b34583] transition-all flex items-center gap-2 shadow-sm w-full lg:w-auto justify-center"
+              onClick={
+                currentTab === "overview" || currentTab === "sales"
+                  ? loadDashboardData
+                  : loadReportData
+              }
+              className="bg-[#cb5094] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#b34583] transition-all flex items-center gap-2 shadow-sm"
             >
               <RefreshCw className="w-5 h-5" />
               Refresh Data
@@ -620,7 +579,7 @@ function OwnerDashboard() {
           </div>
         </div>
 
-        {/* Overview Tab */}
+        {/* OVERVIEW */}
         {currentTab === "overview" && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -652,22 +611,6 @@ function OwnerDashboard() {
                   </div>
                   <div className="w-12 h-12 lg:w-14 lg:h-14 bg-green-50 rounded-xl flex items-center justify-center">
                     <ShoppingCart className="w-6 h-6 lg:w-7 lg:h-7 text-green-500" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-5 shadow-md border-l-4 border-blue-500 hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm font-medium">
-                      Total Transaksi
-                    </p>
-                    <p className="text-3xl lg:text-4xl font-bold text-gray-800 mt-2">
-                      {dashboardData.totalTransactions}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 lg:w-14 lg:h-14 bg-blue-50 rounded-xl flex items-center justify-center">
-                    <CreditCard className="w-6 h-6 lg:w-7 lg:h-7 text-blue-500" />
                   </div>
                 </div>
               </div>
@@ -752,17 +695,19 @@ function OwnerDashboard() {
                   {dashboardData.topProducts.map((product, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100 transition-all"
+                      className="flex items-center gap-4 p-4 bg-gradient-to-br from-gray-50 to-pink-50/30 rounded-xl border border-[#cb5094]/10 hover:shadow-md transition-shadow"
                     >
-                      <div className="w-10 h-10 bg-[#cb5094] rounded-full flex items-center justify-center text-white font-bold text-xl">
+                      <div className="w-10 h-10 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center text-white font-bold text-xl">
                         #{idx + 1}
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-gray-800">
+                        <h3 className="font-bold text-gray-900">
                           {product.name}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Penjualan: {formatPrice(product.sales)}
+                        </h3>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold bg-gradient-to-r from-[#cb5094] to-[#e570b3] bg-clip-text text-transparent">
+                          {formatPrice(product.sales)}
                         </p>
                       </div>
                     </div>
@@ -773,7 +718,7 @@ function OwnerDashboard() {
           </>
         )}
 
-        {/* Sales Report Tab */}
+        {/* SALES REPORT */}
         {currentTab === "sales" && (
           <>
             <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
@@ -805,637 +750,137 @@ function OwnerDashboard() {
               />
             </div>
 
-            {reportLoading ? (
-              <div className="text-center py-10">
-                <div className="w-12 h-12 border-4 border-pink-200 border-t-[#cb5094] rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Memuat laporan...</p>
-              </div>
-            ) : (
-              salesReport && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Total Penjualan
-                      </p>
-                      <p className="text-3xl font-bold text-[#cb5094] mt-2">
-                        {formatPrice(salesReport.totalSales || 0)}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Total Pesanan
-                      </p>
-                      <p className="text-3xl font-bold text-green-500 mt-2">
-                        {salesReport.totalOrders || 0}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Rata-rata Nilai Pesanan
-                      </p>
-                      <p className="text-3xl font-bold text-blue-500 mt-2">
-                        {formatPrice(salesReport.averageOrderValue || 0)}
-                      </p>
-                    </div>
+            {salesReport && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-2xl p-5 shadow-md">
+                    <p className="text-gray-500 text-sm font-medium">
+                      Total Penjualan
+                    </p>
+                    <p className="text-3xl font-bold text-[#cb5094] mt-2">
+                      {formatPrice(salesReport.totalSales || 0)}
+                    </p>
                   </div>
+                  <div className="bg-white rounded-2xl p-5 shadow-md">
+                    <p className="text-gray-500 text-sm font-medium">
+                      Total Pesanan
+                    </p>
+                    <p className="text-3xl font-bold text-green-500 mt-2">
+                      {salesReport.totalOrders || 0}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-2xl p-5 shadow-md">
+                    <p className="text-gray-500 text-sm font-medium">
+                      Rata-rata Nilai Pesanan
+                    </p>
+                    <p className="text-3xl font-bold text-blue-500 mt-2">
+                      {formatPrice(salesReport.averageOrderValue || 0)}
+                    </p>
+                  </div>
+                </div>
 
-                  {salesReport.salesByDate &&
-                    salesReport.salesByDate.length > 0 && (
-                      <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">
-                          Trend Penjualan Harian
-                        </h3>
-                        <div style={{ width: "100%", minHeight: "400px" }}>
-                          <ResponsiveContainer width="100%" height={400}>
-                            <BarChart data={salesReport.salesByDate}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="date" />
-                              <YAxis
-                                tickFormatter={(val) => formatPrice(val, true)}
-                              />
-                              <Tooltip formatter={(val) => formatPrice(val)} />
-                              <Legend />
-                              <Bar
-                                dataKey="sales"
-                                name="Penjualan"
-                                fill="#cb5094"
-                              />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
+                {salesReport.salesByDate &&
+                  salesReport.salesByDate.length > 0 && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4">
+                        Trend Penjualan Harian
+                      </h3>
+                      <div style={{ width: "100%", minHeight: "400px" }}>
+                        <ResponsiveContainer width="100%" height={400}>
+                          <BarChart data={salesReport.salesByDate}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis
+                              tickFormatter={(val) => formatPrice(val, true)}
+                            />
+                            <Tooltip formatter={(val) => formatPrice(val)} />
+                            <Legend />
+                            <Bar
+                              dataKey="sales"
+                              name="Penjualan"
+                              fill="#cb5094"
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                  {salesReport.topSellingProducts &&
-                    salesReport.topSellingProducts.length > 0 && (
-                      <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">
-                          Produk Terlaris
-                        </h3>
-                        <div className="space-y-3">
-                          {salesReport.topSellingProducts.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-[#cb5094] rounded-full flex items-center justify-center text-white font-bold">
-                                  {idx + 1}
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-gray-800">
-                                    {item.product}
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    Terjual: {item.quantity} unit
-                                  </p>
-                                </div>
+                {salesReport.topSellingProducts &&
+                  salesReport.topSellingProducts.length > 0 && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4">
+                        Produk Terlaris
+                      </h3>
+                      <div className="space-y-3">
+                        {salesReport.topSellingProducts.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-[#cb5094] rounded-full flex items-center justify-center text-white font-bold">
+                                {idx + 1}
                               </div>
-                              <p className="text-lg font-bold text-[#cb5094]">
-                                {formatPrice(item.revenue)}
-                              </p>
+                              <div>
+                                <p className="font-semibold text-gray-800">
+                                  {item.name}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  Terjual: {formatPrice(item.sales)}
+                                </p>
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                </>
-              )
-            )}
-          </>
-        )}
-
-        {/* Customers Report Tab */}
-        {currentTab === "customers" && (
-          <>
-            <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                  <Users className="w-6 h-6 text-[#cb5094]" />
-                  Laporan Pelanggan
-                </h2>
-                <button
-                  onClick={() => handleExportReport("customers")}
-                  className="bg-green-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-600 transition-all flex items-center gap-2 shadow-sm"
-                >
-                  <Download className="w-5 h-5" />
-                  Export CSV
-                </button>
-              </div>
-
-              <DateRangePicker
-                startDate={dateRange.startDate}
-                endDate={dateRange.endDate}
-                onStartDateChange={(val) =>
-                  setDateRange({ ...dateRange, startDate: val })
-                }
-                onEndDateChange={(val) =>
-                  setDateRange({ ...dateRange, endDate: val })
-                }
-                onApply={applyDateRange}
-                onReset={resetDateRange}
-              />
-            </div>
-
-            {reportLoading ? (
-              <div className="text-center py-10">
-                <div className="w-12 h-12 border-4 border-pink-200 border-t-[#cb5094] rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Memuat laporan...</p>
-              </div>
-            ) : (
-              customersReport && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Total Pelanggan
-                      </p>
-                      <p className="text-3xl font-bold text-[#cb5094] mt-2">
-                        {customersReport.totalCustomers || 0}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Pelanggan Baru
-                      </p>
-                      <p className="text-3xl font-bold text-green-500 mt-2">
-                        {customersReport.newCustomers || 0}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Pelanggan Kembali
-                      </p>
-                      <p className="text-3xl font-bold text-blue-500 mt-2">
-                        {customersReport.returningCustomers || 0}
-                      </p>
-                    </div>
-                  </div>
-
-                  {customersReport.topCustomers &&
-                    customersReport.topCustomers.length > 0 && (
-                      <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">
-                          Pelanggan Teratas
-                        </h3>
-                        <div className="space-y-3">
-                          {customersReport.topCustomers.map((customer, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center">
-                                  <Users className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-gray-800">
-                                    {customer.name}
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    {customer.totalOrders} pesanan
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="text-lg font-bold text-[#cb5094]">
-                                {formatPrice(customer.totalSpent)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                  {customersReport.customersByCity &&
-                    customersReport.customersByCity.length > 0 && (
-                      <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">
-                          Sebaran Pelanggan per Kota
-                        </h3>
-                        <div style={{ width: "100%", minHeight: "400px" }}>
-                          <ResponsiveContainer width="100%" height={400}>
-                            <PieChart>
-                              <Pie
-                                data={customersReport.customersByCity}
-                                dataKey="count"
-                                nameKey="city"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={100}
-                                label
-                              >
-                                {customersReport.customersByCity.map(
-                                  (entry, index) => (
-                                    <Cell
-                                      key={`cell-${index}`}
-                                      fill={COLORS[index % COLORS.length]}
-                                    />
-                                  )
-                                )}
-                              </Pie>
-                              <Tooltip />
-                              <Legend />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    )}
-                </>
-              )
-            )}
-          </>
-        )}
-
-        {/* Orders Report Tab */}
-        {currentTab === "orders" && (
-          <>
-            <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                  <ShoppingCart className="w-6 h-6 text-[#cb5094]" />
-                  Laporan Pesanan
-                </h2>
-                <button
-                  onClick={() => handleExportReport("orders")}
-                  className="bg-green-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-600 transition-all flex items-center gap-2 shadow-sm"
-                >
-                  <Download className="w-5 h-5" />
-                  Export CSV
-                </button>
-              </div>
-
-              <DateRangePicker
-                startDate={dateRange.startDate}
-                endDate={dateRange.endDate}
-                onStartDateChange={(val) =>
-                  setDateRange({ ...dateRange, startDate: val })
-                }
-                onEndDateChange={(val) =>
-                  setDateRange({ ...dateRange, endDate: val })
-                }
-                onApply={applyDateRange}
-                onReset={resetDateRange}
-              />
-            </div>
-
-            {reportLoading ? (
-              <div className="text-center py-10">
-                <div className="w-12 h-12 border-4 border-pink-200 border-t-[#cb5094] rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Memuat laporan...</p>
-              </div>
-            ) : (
-              ordersReport && (
-                <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Total Pesanan
-                      </p>
-                      <p className="text-3xl font-bold text-[#cb5094] mt-2">
-                        {ordersReport.totalOrders || 0}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Pending
-                      </p>
-                      <p className="text-3xl font-bold text-yellow-500 mt-2">
-                        {ordersReport.pendingOrders || 0}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Diproses
-                      </p>
-                      <p className="text-3xl font-bold text-blue-500 mt-2">
-                        {ordersReport.processingOrders || 0}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Selesai
-                      </p>
-                      <p className="text-3xl font-bold text-green-500 mt-2">
-                        {ordersReport.completedOrders || 0}
-                      </p>
-                    </div>
-                  </div>
-
-                  {ordersReport.ordersByStatus &&
-                    ordersReport.ordersByStatus.length > 0 && (
-                      <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">
-                          Distribusi Status Pesanan
-                        </h3>
-                        <div style={{ width: "100%", minHeight: "400px" }}>
-                          <ResponsiveContainer width="100%" height={400}>
-                            <PieChart>
-                              <Pie
-                                data={ordersReport.ordersByStatus}
-                                dataKey="count"
-                                nameKey="status"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={100}
-                                label={(entry) =>
-                                  `${entry.status}: ${entry.percentage}%`
-                                }
-                              >
-                                {ordersReport.ordersByStatus.map(
-                                  (entry, index) => (
-                                    <Cell
-                                      key={`cell-${index}`}
-                                      fill={COLORS[index % COLORS.length]}
-                                    />
-                                  )
-                                )}
-                              </Pie>
-                              <Tooltip />
-                              <Legend />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    )}
-
-                  {ordersReport.orderTrend &&
-                    ordersReport.orderTrend.length > 0 && (
-                      <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">
-                          Trend Pesanan Harian
-                        </h3>
-                        <div style={{ width: "100%", minHeight: "400px" }}>
-                          <ResponsiveContainer width="100%" height={400}>
-                            <LineChart data={ordersReport.orderTrend}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="date" />
-                              <YAxis />
-                              <Tooltip />
-                              <Legend />
-                              <Line
-                                type="monotone"
-                                dataKey="orders"
-                                name="Jumlah Pesanan"
-                                stroke="#cb5094"
-                                strokeWidth={2}
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    )}
-                </>
-              )
-            )}
-          </>
-        )}
-
-        {/* Inventory Report Tab */}
-        {currentTab === "inventory" && (
-          <>
-            <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                  <Package className="w-6 h-6 text-[#cb5094]" />
-                  Laporan Inventori
-                </h2>
-                <button
-                  onClick={() => handleExportReport("inventory")}
-                  className="bg-green-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-600 transition-all flex items-center gap-2 shadow-sm"
-                >
-                  <Download className="w-5 h-5" />
-                  Export CSV
-                </button>
-              </div>
-            </div>
-
-            {reportLoading ? (
-              <div className="text-center py-10">
-                <div className="w-12 h-12 border-4 border-pink-200 border-t-[#cb5094] rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Memuat laporan...</p>
-              </div>
-            ) : (
-              inventoryReport && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Total Produk
-                      </p>
-                      <p className="text-3xl font-bold text-[#cb5094] mt-2">
-                        {inventoryReport.totalProducts || 0}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Stok Menipis
-                      </p>
-                      <p className="text-3xl font-bold text-yellow-500 mt-2">
-                        {inventoryReport.lowStock || 0}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-md">
-                      <p className="text-gray-500 text-sm font-medium">
-                        Stok Habis
-                      </p>
-                      <p className="text-3xl font-bold text-red-500 mt-2">
-                        {inventoryReport.outOfStock || 0}
-                      </p>
-                    </div>
-                  </div>
-
-                  {inventoryReport.products &&
-                    inventoryReport.products.length > 0 && (
-                      <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">
-                          Status Stok Produk
-                        </h3>
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="border-b-2 border-gray-200">
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                                  Produk
-                                </th>
-                                <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                                  Stok
-                                </th>
-                                <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                                  Status
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {inventoryReport.products.map((product, idx) => (
-                                <tr
-                                  key={idx}
-                                  className="border-b border-gray-100 hover:bg-gray-50"
-                                >
-                                  <td className="py-3 px-4 font-medium text-gray-800">
-                                    {product.name}
-                                  </td>
-                                  <td className="py-3 px-4 text-center">
-                                    {product.stock}
-                                  </td>
-                                  <td className="py-3 px-4 text-center">
-                                    <span
-                                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                        product.status === "out"
-                                          ? "bg-red-100 text-red-600"
-                                          : product.status === "low"
-                                          ? "bg-yellow-100 text-yellow-600"
-                                          : "bg-green-100 text-green-600"
-                                      }`}
-                                    >
-                                      {product.status === "out"
-                                        ? "Habis"
-                                        : product.status === "low"
-                                        ? "Menipis"
-                                        : "Normal"}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                </>
-              )
-            )}
-          </>
-        )}
-
-        {/* Category Report Tab */}
-        {currentTab === "category" && (
-          <>
-            <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                  <FileText className="w-6 h-6 text-[#cb5094]" />
-                  Laporan Kategori
-                </h2>
-                <button
-                  onClick={() => handleExportReport("category")}
-                  className="bg-green-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-600 transition-all flex items-center gap-2 shadow-sm"
-                >
-                  <Download className="w-5 h-5" />
-                  Export CSV
-                </button>
-              </div>
-
-              <DateRangePicker
-                startDate={dateRange.startDate}
-                endDate={dateRange.endDate}
-                onStartDateChange={(val) =>
-                  setDateRange({ ...dateRange, startDate: val })
-                }
-                onEndDateChange={(val) =>
-                  setDateRange({ ...dateRange, endDate: val })
-                }
-                onApply={applyDateRange}
-                onReset={resetDateRange}
-              />
-            </div>
-
-            {reportLoading ? (
-              <div className="text-center py-10">
-                <div className="w-12 h-12 border-4 border-pink-200 border-t-[#cb5094] rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Memuat laporan...</p>
-              </div>
-            ) : (
-              categoryReport && (
-                <>
-                  {categoryReport.categories &&
-                    categoryReport.categories.length > 0 && (
-                      <>
-                        <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-                          <h3 className="text-lg font-bold text-gray-900 mb-4">
-                            Performa Kategori
-                          </h3>
-                          <div className="space-y-4">
-                            {categoryReport.categories.map((cat, idx) => (
-                              <div
-                                key={idx}
-                                className="p-4 bg-gray-50 rounded-xl"
-                              >
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-3">
-                                    <div
-                                      className="w-4 h-4 rounded-full"
-                                      style={{
-                                        backgroundColor:
-                                          COLORS[idx % COLORS.length],
-                                      }}
-                                    ></div>
-                                    <span className="font-semibold text-gray-800">
-                                      {cat.name}
-                                    </span>
-                                  </div>
-                                  <span className="text-lg font-bold text-[#cb5094]">
-                                    {formatPrice(cat.sales)}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between text-sm text-gray-600">
-                                  <span>{cat.orders} items terjual</span>
-                                  <span>{cat.percentage}%</span>
-                                </div>
-                                <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-[#cb5094] h-2 rounded-full transition-all"
-                                    style={{ width: `${cat.percentage}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                            ))}
                           </div>
-                        </div>
-
-                        <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
-                          <h3 className="text-lg font-bold text-gray-900 mb-4">
-                            Distribusi Penjualan per Kategori
-                          </h3>
-                          <div style={{ width: "100%", minHeight: "400px" }}>
-                            <ResponsiveContainer width="100%" height={400}>
-                              <PieChart>
-                                <Pie
-                                  data={categoryReport.categories}
-                                  dataKey="sales"
-                                  nameKey="name"
-                                  cx="50%"
-                                  cy="50%"
-                                  outerRadius={100}
-                                  label={(entry) =>
-                                    `${entry.name}: ${entry.percentage}%`
-                                  }
-                                >
-                                  {categoryReport.categories.map(
-                                    (entry, index) => (
-                                      <Cell
-                                        key={`cell-${index}`}
-                                        fill={COLORS[index % COLORS.length]}
-                                      />
-                                    )
-                                  )}
-                                </Pie>
-                                <Tooltip
-                                  formatter={(val) => formatPrice(val)}
-                                />
-                                <Legend />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                </>
-              )
+                        ))}
+                      </div>
+                    </div>
+                  )}
+              </>
             )}
           </>
         )}
       </div>
+      {/* Popup Konfirmasi Logout */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Background Blur */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={cancelLogout}
+          />
+
+          {/* Popup Card */}
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 animate-in fade-in zoom-in duration-300">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg">
+                <LogOut className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Yakin ingin keluar?
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Anda akan kembali ke halaman utama dan sesi login akan berakhir.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={cancelLogout}
+                className="flex-1 py-3.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 py-3.5 rounded-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] hover:from-[#b44682] hover:to-[#c54e96] text-white font-bold shadow-lg hover:shadow-xl transition-all"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
