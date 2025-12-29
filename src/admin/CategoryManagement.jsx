@@ -13,7 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { categoryAPI } from "../utils/api";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 function CategoryManagement() {
   const [categories, setCategories] = useState([]);
@@ -33,18 +33,6 @@ function CategoryManagement() {
     aktif: true,
   });
 
-  // Toast style identik dengan ProductVariantManagement & ProductManagement
-  const toastStyle = {
-    borderRadius: "12px",
-    background: "rgba(255, 255, 255, 0.95)",
-    backdropFilter: "blur(10px)",
-    color: "#333",
-    fontSize: "14px",
-    padding: "16px 20px",
-    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-    border: "1px solid rgba(0, 0, 0, 0.08)",
-  };
-
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -57,10 +45,7 @@ function CategoryManagement() {
       setCategories(data);
     } catch (error) {
       console.error(error);
-      toast.error("Gagal memuat kategori", {
-        position: "bottom-right",
-        style: { ...toastStyle, borderLeft: "4px solid #ef4444" },
-      });
+      toast.error("Gagal memuat kategori");
       setCategories([]);
     } finally {
       setLoading(false);
@@ -82,38 +67,23 @@ function CategoryManagement() {
     if (e && e.preventDefault) e.preventDefault();
 
     if (!formData.nama.trim() || !formData.slug.trim()) {
-      toast.error("Nama dan slug wajib diisi!", {
-        position: "bottom-right",
-        style: { ...toastStyle, borderLeft: "4px solid #f59e0b" },
-      });
+      toast.error("Nama dan slug wajib diisi!");
       return;
     }
 
     const toastId = toast.loading(
-      editingCategory ? "Mengupdate kategori..." : "Membuat kategori...",
-      {
-        position: "bottom-right",
-        style: toastStyle,
-      }
+      editingCategory ? "Mengupdate kategori..." : "Membuat kategori..."
     );
 
     try {
       if (editingCategory) {
         await categoryAPI.update(editingCategory.id, formData);
         toast.dismiss(toastId);
-        toast.success("Kategori berhasil diupdate!", {
-          position: "bottom-right",
-          style: { ...toastStyle, borderLeft: "4px solid #10b981" },
-          duration: 4000,
-        });
+        toast.success("Kategori berhasil diupdate!");
       } else {
         await categoryAPI.create(formData);
         toast.dismiss(toastId);
-        toast.success("Kategori berhasil ditambahkan!", {
-          position: "bottom-right",
-          style: { ...toastStyle, borderLeft: "4px solid #10b981" },
-          duration: 4000,
-        });
+        toast.success("Kategori berhasil ditambahkan!");
       }
 
       handleCancelForm();
@@ -122,10 +92,7 @@ function CategoryManagement() {
       toast.dismiss(toastId);
       const msg =
         err.response?.data?.message || err.message || "Terjadi kesalahan";
-      toast.error(`❌ Gagal: ${msg}`, {
-        position: "bottom-right",
-        style: { ...toastStyle, borderLeft: "4px solid #ef4444" },
-      });
+      toast.error(`Gagal: ${msg}`);
     }
   };
 
@@ -140,7 +107,6 @@ function CategoryManagement() {
     setShowForm(true);
   };
 
-  // Hapus dengan modal konfirmasi cantik
   const handleDelete = (id, nama) => {
     setCategoryToDelete({ id, nama });
     setShowDeleteConfirmation(true);
@@ -149,27 +115,18 @@ function CategoryManagement() {
   const confirmDelete = async () => {
     if (!categoryToDelete) return;
 
-    const toastId = toast.loading("Menghapus kategori...", {
-      position: "bottom-right",
-      style: toastStyle,
-    });
+    const toastId = toast.loading("Menghapus kategori...");
 
     try {
       await categoryAPI.delete(categoryToDelete.id);
       toast.dismiss(toastId);
-      toast.success(`Kategori "${categoryToDelete.nama}" berhasil dihapus!`, {
-        position: "bottom-right",
-        style: { ...toastStyle, borderLeft: "4px solid #10b981" },
-      });
+      toast.success(`Kategori "${categoryToDelete.nama}" berhasil dihapus!`);
       fetchCategories();
     } catch (err) {
       toast.dismiss(toastId);
       const msg =
         err.response?.data?.message || err.message || "Terjadi kesalahan";
-      toast.error(`❌ Gagal hapus: ${msg}`, {
-        position: "bottom-right",
-        style: { ...toastStyle, borderLeft: "4px solid #ef4444" },
-      });
+      toast.error(`Gagal hapus: ${msg}`);
     } finally {
       setShowDeleteConfirmation(false);
       setCategoryToDelete(null);
@@ -198,45 +155,6 @@ function CategoryManagement() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 pb-20 lg:pb-0">
-      {/* Toast Notifications */}
-      <Toaster
-        position="bottom-right"
-        reverseOrder={false}
-        gutter={12}
-        containerStyle={{
-          bottom: 40,
-          right: 20,
-        }}
-        toastOptions={{
-          duration: 4000,
-          style: {
-            borderRadius: "12px",
-            background: "rgba(255, 255, 255, 0.95)",
-            backdropFilter: "blur(10px)",
-            color: "#333",
-            fontSize: "14px",
-            padding: "16px 20px",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-            border: "1px solid rgba(0, 0, 0, 0.08)",
-          },
-          success: {
-            style: {
-              borderLeft: "4px solid #10b981",
-            },
-          },
-          error: {
-            style: {
-              borderLeft: "4px solid #ef4444",
-            },
-          },
-          loading: {
-            style: {
-              borderLeft: "4px solid #f59e0b",
-            },
-          },
-        }}
-      />
-
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
@@ -494,7 +412,7 @@ function CategoryManagement() {
           </div>
         )}
 
-        {/* Delete Confirmation Modal - PERSIS SAMA dengan Product & Variant */}
+        {/* Delete Confirmation Modal */}
         {showDeleteConfirmation && categoryToDelete && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">

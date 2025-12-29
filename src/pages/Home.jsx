@@ -1182,7 +1182,7 @@ function Home() {
                     className="w-full bg-gradient-to-r from-[#cb5094] to-[#d85fa8] hover:from-[#b44682] hover:to-[#c54e96] text-white py-4 rounded-xl font-bold hover:shadow-2xl hover:scale-[1.02] transition-all flex items-center justify-center gap-3 shadow-xl shadow-[#cb5094]/40"
                   >
                     <Zap className="w-6 h-6" />
-                    <span className="text-lg">Login untuk Belanja</span>
+                    <span className="text-lg">Masuk untuk Belanja</span>
                   </button>
                   <button
                     onClick={() => navigate("/signup")}

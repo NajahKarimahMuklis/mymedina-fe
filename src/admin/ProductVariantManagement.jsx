@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { productAPI, variantAPI } from "../utils/api";
 import { formatPrice } from "../utils/formatPrice";
+import toast from "react-hot-toast";
 
 function ProductVariantManagement() {
   // ===================================================================
@@ -20,13 +21,11 @@ function ProductVariantManagement() {
   // ===================================================================
   const { productId } = useParams();
   const navigate = useNavigate();
-
   const [product, setProduct] = useState(null);
   const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingVariant, setEditingVariant] = useState(null);
-
   // Bulk create step
   const [variantStep, setVariantStep] = useState("colors");
   const [colors, setColors] = useState([]);
@@ -34,19 +33,19 @@ function ProductVariantManagement() {
   const [variantsToCreate, setVariantsToCreate] = useState([]);
   const [newColor, setNewColor] = useState("");
   const [newSize, setNewSize] = useState("");
-
   // Image picker untuk single & bulk
   const [selectedGambar, setSelectedGambar] = useState("");
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [currentColorForPicker, setCurrentColorForPicker] = useState("");
-
   // NEW: State untuk konfirmasi sync foto & harga
   const [showSyncConfirmation, setShowSyncConfirmation] = useState(false);
   const [pendingImageUpdate, setPendingImageUpdate] = useState(null);
   const [showPriceSyncConfirmation, setShowPriceSyncConfirmation] =
     useState(false);
   const [pendingPriceUpdate, setPendingPriceUpdate] = useState(null);
-
+  // State untuk konfirmasi hapus varian
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [variantToDelete, setVariantToDelete] = useState(null);
   // Form data untuk single edit
   const [formData, setFormData] = useState({
     sku: "",
@@ -65,16 +64,15 @@ function ProductVariantManagement() {
     try {
       const response = await productAPI.getById(productId);
       const productData = response.data?.data || response.data || response;
-
       if (productData && productData.slug) {
         setProduct(productData);
       } else {
-        alert("Data produk tidak lengkap");
+        toast.error("Data produk tidak lengkap");
         navigate("/admin/products");
       }
     } catch (error) {
       console.error("Error fetching product:", error);
-      alert("Gagal memuat produk");
+      toast.error("Gagal memuat produk");
       navigate("/admin/products");
     }
   };
@@ -83,7 +81,6 @@ function ProductVariantManagement() {
     try {
       setLoading(true);
       const response = await variantAPI.getByProductId(productId, true);
-
       let variantsData = [];
       if (Array.isArray(response.data)) {
         variantsData = response.data;
@@ -92,13 +89,12 @@ function ProductVariantManagement() {
       } else if (Array.isArray(response)) {
         variantsData = response;
       }
-
       setVariants(variantsData);
     } catch (error) {
       console.error("Error fetching variants:", error);
       setVariants([]);
       if (error.response?.status !== 404) {
-        alert("Gagal memuat varian");
+        toast.error("Gagal memuat varian");
       }
     } finally {
       setLoading(false);
@@ -117,13 +113,11 @@ function ProductVariantManagement() {
   // ===================================================================
   const generateSKU = (size, color) => {
     if (!product || !product.slug || !size || !color) return "";
-
     const baseSlug = product.slug.toUpperCase().replace(/-/g, "");
     const sizeCode = size.toUpperCase().replace(/\s+/g, "");
     const colorCode = color.toUpperCase().replace(/\s+/g, "");
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-
     return `${baseSlug}-${sizeCode}-${colorCode}-${timestamp}-${random}`;
   };
 
@@ -134,6 +128,9 @@ function ProductVariantManagement() {
     if (newColor.trim() && !colors.includes(newColor.trim())) {
       setColors((prev) => [...prev, newColor.trim()]);
       setNewColor("");
+      toast.success(`Warna "${newColor.trim()}" ditambahkan`);
+    } else if (colors.includes(newColor.trim())) {
+      toast.error("Warna sudah ada dalam daftar");
     }
   };
 
@@ -142,11 +139,12 @@ function ProductVariantManagement() {
     setVariantsToCreate((prev) =>
       prev.filter((v) => v.warna !== colorToRemove)
     );
+    toast.success(`Warna "${colorToRemove}" dihapus`);
   };
 
   const handleNextToSizes = () => {
     if (colors.length === 0) {
-      alert("Tambahkan minimal 1 warna terlebih dahulu");
+      toast.error("Tambahkan minimal 1 warna terlebih dahulu");
       return;
     }
     setVariantStep("sizes");
@@ -159,6 +157,9 @@ function ProductVariantManagement() {
     if (newSize.trim() && !sizes.includes(newSize.trim())) {
       setSizes((prev) => [...prev, newSize.trim()]);
       setNewSize("");
+      toast.success(`Ukuran "${newSize.trim()}" ditambahkan`);
+    } else if (sizes.includes(newSize.trim())) {
+      toast.error("Ukuran sudah ada dalam daftar");
     }
   };
 
@@ -167,21 +168,20 @@ function ProductVariantManagement() {
     setVariantsToCreate((prev) =>
       prev.filter((v) => v.ukuran !== sizeToRemove)
     );
+    toast.success(`Ukuran "${sizeToRemove}" dihapus`);
   };
 
   const handleNextToStocks = () => {
     if (sizes.length === 0) {
-      alert("Tambahkan minimal 1 ukuran terlebih dahulu");
+      toast.error("Tambahkan minimal 1 ukuran terlebih dahulu");
       return;
     }
-
     const existingColorImages = {};
     variantsToCreate.forEach((v) => {
       if (v.gambar && !existingColorImages[v.warna]) {
         existingColorImages[v.warna] = v.gambar;
       }
     });
-
     const newVariants = [];
     for (const color of colors) {
       const colorImage = existingColorImages[color] || null;
@@ -195,7 +195,6 @@ function ProductVariantManagement() {
         });
       }
     }
-
     setVariantsToCreate(newVariants);
     setVariantStep("stocks");
   };
@@ -211,54 +210,105 @@ function ProductVariantManagement() {
     );
   };
 
-  const handleCreateMultipleVariants = async () => {
+  const handleCreateMultipleVariants = () => {
     if (variantsToCreate.length === 0) {
-      alert("Tidak ada varian untuk dibuat");
+      toast.error("Tidak ada varian untuk dibuat");
       return;
     }
 
-    if (!confirm(`Yakin ingin membuat ${variantsToCreate.length} varian?`)) {
-      return;
-    }
+    toast(
+      (t) => (
+        <div className="p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-8 h-8 text-amber-500 flex-shrink-0 mt-1" />
+            <div className="flex-1">
+              <h4 className="font-bold text-gray-900 mb-1">
+                Buat Varian Massal?
+              </h4>
+              <p className="text-sm text-gray-600 mb-3">
+                Akan membuat <strong>{variantsToCreate.length} varian</strong>{" "}
+                baru.
+              </p>
+              <p className="text-xs text-gray-500 mb-4">
+                Proses ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={async () => {
+                    toast.dismiss(t.id);
+                    const loadingToast = toast.loading("Membuat varian...");
 
-    try {
-      let successCount = 0;
-      let failCount = 0;
+                    try {
+                      let successCount = 0;
+                      let failCount = 0;
+                      for (const variant of variantsToCreate) {
+                        try {
+                          const sku = generateSKU(
+                            variant.ukuran,
+                            variant.warna
+                          );
+                          const payload = {
+                            sku,
+                            ukuran: variant.ukuran,
+                            warna: variant.warna,
+                            stok: variant.stok,
+                            hargaOverride: null,
+                            aktif: true,
+                            gambar: variant.gambar || null,
+                          };
+                          await variantAPI.create(productId, payload);
+                          successCount++;
+                        } catch (error) {
+                          console.error(
+                            `Gagal buat varian ${variant.ukuran}-${variant.warna}:`,
+                            error
+                          );
+                          failCount++;
+                        }
+                      }
+                      toast.dismiss(loadingToast);
 
-      for (const variant of variantsToCreate) {
-        try {
-          const sku = generateSKU(variant.ukuran, variant.warna);
-          const payload = {
-            sku,
-            ukuran: variant.ukuran,
-            warna: variant.warna,
-            stok: variant.stok,
-            hargaOverride: null,
-            aktif: true,
-            gambar: variant.gambar || null,
-          };
-
-          await variantAPI.create(productId, payload);
-          successCount++;
-        } catch (error) {
-          console.error(
-            `Gagal buat varian ${variant.ukuran}-${variant.warna}:`,
-            error
-          );
-          failCount++;
-        }
+                      if (failCount === 0) {
+                        toast.success(
+                          `Berhasil membuat ${successCount} varian!`
+                        );
+                      } else {
+                        toast.success(
+                          `Berhasil: ${successCount} varian\nGagal: ${failCount} varian`
+                        );
+                      }
+                      handleCancelForm();
+                      fetchVariants();
+                    } catch (error) {
+                      toast.dismiss(loadingToast);
+                      toast.error("Terjadi kesalahan saat membuat varian");
+                    }
+                  }}
+                  className="px-4 py-2 bg-[#cb5094] text-white rounded-lg font-medium hover:bg-[#b54684] transition"
+                >
+                  Ya, Buat Varian
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+      {
+        duration: Infinity,
+        style: {
+          maxWidth: "420px",
+          padding: 0,
+          borderRadius: "16px",
+          boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
+        },
       }
-
-      alert(
-        `Berhasil: ${successCount} varian${
-          failCount > 0 ? `\nGagal: ${failCount}` : ""
-        }`
-      );
-      handleCancelForm();
-      fetchVariants();
-    } catch (error) {
-      alert("Terjadi kesalahan saat membuat varian");
-    }
+    );
   };
 
   // ===================================================================
@@ -279,11 +329,7 @@ function ProductVariantManagement() {
 
       for (const variant of variantsWithSameColor) {
         try {
-          // HANYA UPDATE GAMBAR SAJA — JANGAN KIRIM FIELD LAIN!
-          const payload = {
-            gambar: newImage,
-          };
-
+          const payload = { gambar: newImage };
           await variantAPI.update(variant.id, payload);
           successCount++;
         } catch (error) {
@@ -293,16 +339,16 @@ function ProductVariantManagement() {
       }
 
       if (successCount > 0) {
-        alert(
-          `✅ Foto berhasil disinkronkan ke ${successCount} varian lain dengan warna "${colorToSync}"${
-            failCount > 0 ? `\n⚠️ ${failCount} varian gagal` : ""
+        toast.success(
+          `Foto berhasil disinkronkan ke ${successCount} varian lain dengan warna "${colorToSync}"${
+            failCount > 0 ? `\n${failCount} varian gagal` : ""
           }`
         );
         fetchVariants();
       }
     } catch (error) {
       console.error("Error syncing photos:", error);
-      alert("Terjadi kesalahan saat sinkronisasi foto");
+      toast.error("Terjadi kesalahan saat sinkronisasi foto");
     }
   };
 
@@ -316,12 +362,9 @@ function ProductVariantManagement() {
           v.warna.toLowerCase() === colorToSync.toLowerCase() &&
           v.id !== editingVariant?.id
       );
-
       if (variantsWithSameColor.length === 0) return;
-
       let successCount = 0;
       let failCount = 0;
-
       for (const variant of variantsWithSameColor) {
         try {
           const payload = { hargaOverride: newPrice };
@@ -332,18 +375,17 @@ function ProductVariantManagement() {
           failCount++;
         }
       }
-
       if (successCount > 0) {
-        alert(
-          `✅ Harga berhasil disinkronkan ke ${successCount} varian lain dengan warna "${colorToSync}"${
-            failCount > 0 ? `\n⚠️ ${failCount} varian gagal` : ""
+        toast.success(
+          `Harga berhasil disinkronkan ke ${successCount} varian lain dengan warna "${colorToSync}"${
+            failCount > 0 ? `\n${failCount} varian gagal` : ""
           }`
         );
         fetchVariants();
       }
     } catch (error) {
       console.error("Error syncing prices:", error);
-      alert("Terjadi kesalahan saat sinkronisasi harga");
+      toast.error("Terjadi kesalahan saat sinkronisasi harga");
     }
   };
 
@@ -359,19 +401,18 @@ function ProductVariantManagement() {
       !formData.warna ||
       !formData.stok
     ) {
-      alert("SKU, ukuran, warna, dan stok harus diisi");
+      toast.error("SKU, ukuran, warna, dan stok harus diisi");
       return;
     }
 
     const newImage = selectedGambar || formData.gambar || null;
     const isImageChanged = editingVariant && editingVariant.gambar !== newImage;
 
-    // CEK PERUBAHAN HARGA OVERRIDE
     let newPrice = null;
     if (formData.hargaOverride && formData.hargaOverride.trim() !== "") {
       const parsed = parseFloat(formData.hargaOverride);
       if (isNaN(parsed) || parsed < 0) {
-        alert("Harga override harus angka positif");
+        toast.error("Harga override harus angka positif");
         return;
       }
       newPrice = parsed;
@@ -380,7 +421,6 @@ function ProductVariantManagement() {
     const isPriceChanged =
       editingVariant && editingVariant.hargaOverride !== newPrice;
 
-    // Cek varian dengan warna yang sama
     if (editingVariant) {
       const variantsWithSameColor = variants.filter(
         (v) =>
@@ -388,7 +428,6 @@ function ProductVariantManagement() {
           v.id !== editingVariant.id
       );
 
-      // JIKA FOTO BERUBAH
       if (isImageChanged && variantsWithSameColor.length > 0) {
         setPendingImageUpdate({
           formData,
@@ -401,7 +440,6 @@ function ProductVariantManagement() {
         return;
       }
 
-      // JIKA HARGA BERUBAH (dan foto tidak berubah)
       if (
         isPriceChanged &&
         !isImageChanged &&
@@ -441,10 +479,15 @@ function ProductVariantManagement() {
       payload.hargaOverride = newPrice;
     }
 
+    const loadingToast = toast.loading(
+      editingVariant ? "Mengupdate varian..." : "Membuat varian..."
+    );
+
     try {
       if (editingVariant) {
         await variantAPI.update(editingVariant.id, payload);
-        alert("Varian berhasil diupdate!");
+        toast.dismiss(loadingToast);
+        toast.success("Varian berhasil diupdate!");
 
         if (shouldSyncImage) {
           await handleSyncPhotoByColor(formData.warna, newImage);
@@ -455,14 +498,16 @@ function ProductVariantManagement() {
         }
       } else {
         await variantAPI.create(productId, payload);
-        alert("Varian berhasil dibuat!");
+        toast.dismiss(loadingToast);
+        toast.success("Varian berhasil dibuat!");
       }
 
       handleCancelForm();
       fetchVariants();
     } catch (error) {
       console.error("Error saving variant:", error);
-      alert("Gagal menyimpan varian");
+      toast.dismiss(loadingToast);
+      toast.error("Gagal menyimpan varian");
     }
   };
 
@@ -510,16 +555,31 @@ function ProductVariantManagement() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id, sku) => {
-    if (!confirm(`Yakin ingin menghapus varian "${sku}"?`)) return;
+  const handleDelete = (id, sku) => {
+    setVariantToDelete({ id, sku });
+    setShowDeleteConfirmation(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!variantToDelete) return;
+    const loadingToast = toast.loading("Menghapus varian...");
     try {
-      await variantAPI.delete(id);
-      alert("Varian berhasil dihapus!");
+      await variantAPI.delete(variantToDelete.id);
+      toast.dismiss(loadingToast);
+      toast.success("Varian berhasil dihapus!");
       fetchVariants();
     } catch (error) {
-      alert("Gagal menghapus varian");
+      toast.dismiss(loadingToast);
+      toast.error("Gagal menghapus varian");
+    } finally {
+      setShowDeleteConfirmation(false);
+      setVariantToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirmation(false);
+    setVariantToDelete(null);
   };
 
   const handleCancelForm = () => {
@@ -851,7 +911,7 @@ function ProductVariantManagement() {
           )}
         </div>
 
-        {/* Sync Confirmation Modal */}
+        {/* Sync Confirmation Modal - FOTO */}
         {showSyncConfirmation && pendingImageUpdate && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
@@ -869,7 +929,6 @@ function ProductVariantManagement() {
                   </p>
                 </div>
               </div>
-
               <div className="bg-blue-50 rounded-xl p-4 mb-6">
                 <p className="text-sm text-gray-700 leading-relaxed">
                   Apakah Anda ingin{" "}
@@ -884,7 +943,6 @@ function ProductVariantManagement() {
                   menggunakan foto yang baru
                 </p>
               </div>
-
               <div className="flex gap-3">
                 <button
                   onClick={() => handleConfirmSync(true)}
@@ -921,7 +979,6 @@ function ProductVariantManagement() {
                   </p>
                 </div>
               </div>
-
               <div className="bg-green-50 rounded-xl p-4 mb-6">
                 <p className="text-sm text-gray-700 leading-relaxed">
                   Apakah Anda ingin{" "}
@@ -942,7 +999,6 @@ function ProductVariantManagement() {
                   yang sama
                 </p>
               </div>
-
               <div className="flex gap-3">
                 <button
                   onClick={() => handleConfirmPriceSync(true)}
@@ -955,6 +1011,53 @@ function ProductVariantManagement() {
                   className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all"
                 >
                   Tidak
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirmation && variantToDelete && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-[#cb5094]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    Konfirmasi Hapus Varian
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Tindakan ini tidak dapat dibatalkan
+                  </p>
+                </div>
+              </div>
+              <div className="bg-pink-50 rounded-xl p-4 mb-6 border border-pink-200">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  Apakah Anda yakin ingin menghapus varian{" "}
+                  <strong className="text-[#cb5094]">
+                    "{variantToDelete.sku}"
+                  </strong>
+                  ?
+                </p>
+                <p className="text-xs text-gray-600 mt-2">
+                  ⚠️ Data varian akan dihapus secara permanen dari sistem
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelDelete}
+                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 bg-[#cb5094] text-white py-3 rounded-xl font-bold hover:bg-[#b54684] transition-all"
+                >
+                  Ya, Hapus
                 </button>
               </div>
             </div>
@@ -980,7 +1083,6 @@ function ProductVariantManagement() {
                   <X className="w-6 h-6" />
                 </button>
               </div>
-
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {(product.gambarUrl?.split("|||").filter(Boolean) || []).map(
                   (url, i) => {
@@ -989,9 +1091,7 @@ function ProductVariantManagement() {
                           (v) => v.warna === currentColorForPicker
                         )?.gambar || null
                       : selectedGambar;
-
                     const isSelected = currentSelectedImage === url;
-
                     return (
                       <button
                         key={i}
@@ -1008,9 +1108,13 @@ function ProductVariantManagement() {
                             setSelectedGambar("");
                             setCurrentColorForPicker("");
                             setShowImagePicker(false);
+                            toast.success(
+                              `Foto untuk warna "${currentColorForPicker}" dipilih`
+                            );
                           } else {
                             setSelectedGambar(url);
                             setShowImagePicker(false);
+                            toast.success("Foto varian dipilih");
                           }
                         }}
                         className={`relative rounded-xl overflow-hidden border-4 transition-all hover:scale-105 ${
@@ -1034,7 +1138,6 @@ function ProductVariantManagement() {
                   }
                 )}
               </div>
-
               {(product.gambarUrl?.split("|||").filter(Boolean) || [])
                 .length === 0 && (
                 <div className="text-center py-12 text-gray-500">
@@ -1062,7 +1165,6 @@ function ProductVariantManagement() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-5">
                 {editingVariant ? (
@@ -1154,7 +1256,10 @@ function ProductVariantManagement() {
                                   formData.ukuran,
                                   formData.warna
                                 );
-                                if (sku) setFormData({ ...formData, sku });
+                                if (sku) {
+                                  setFormData({ ...formData, sku });
+                                  toast.success("SKU berhasil di-generate");
+                                }
                               }}
                               className="px-4 py-2 bg-pink-50 text-[#cb5094] rounded-lg font-semibold"
                             >
@@ -1436,14 +1541,12 @@ function ProductVariantManagement() {
                               ← Kembali
                             </button>
                           </div>
-
                           {/* Pilih gambar per warna */}
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                             {colors.map((color) => {
                               const currentImage =
                                 variantsToCreate.find((v) => v.warna === color)
                                   ?.gambar || null;
-
                               return (
                                 <div
                                   key={color}
@@ -1477,7 +1580,6 @@ function ProductVariantManagement() {
                               );
                             })}
                           </div>
-
                           {/* Atur stok per varian */}
                           <div>
                             <h4 className="text-xl font-bold text-gray-800 mb-4">
@@ -1529,7 +1631,6 @@ function ProductVariantManagement() {
                             </div>
                           </div>
                         </div>
-
                         <button
                           onClick={handleCreateMultipleVariants}
                           className="w-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white py-5 rounded-xl font-bold text-xl hover:shadow-xl transition-all"

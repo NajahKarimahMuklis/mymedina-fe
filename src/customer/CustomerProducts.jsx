@@ -1,49 +1,42 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { useOutletContext } from "react-router-dom";
-import {
-  Package,
-  Search,
-  Grid,
-  List,
-  Filter,
-  ChevronDown,
-  X,
-  Check,
-  Award,
-} from "lucide-react";
-import { productAPI } from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
-import toast from "react-hot-toast";
-import CustomerProductDetail from "./CustomerProductDetail";
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import { 
+  Package, Search, Grid, List, Filter, ChevronDown, 
+  X, Check, Award
+} from 'lucide-react';
+import { productAPI } from '../utils/api';
+import { formatPrice } from '../utils/formatPrice';
+import toast from 'react-hot-toast';
+import CustomerProductDetail from './CustomerProductDetail';
 
 function CustomerProducts() {
   const { searchQuery, setCartCount } = useOutletContext();
-
+  
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [sortBy, setSortBy] = useState("newest");
-  const [categories, setCategories] = useState(["all"]);
-  const [localSearchQuery, setLocalSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState("grid");
+  const [sortBy, setSortBy] = useState('newest');
+  const [categories, setCategories] = useState(['all']);
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState('grid');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [appliedCategories, setAppliedCategories] = useState([]);
   const [tempSelectedCategories, setTempSelectedCategories] = useState([]);
-  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState('all');
 
   const pollingIntervalRef = useRef(null);
   const sortDropdownRef = useRef(null);
   const statusDropdownRef = useRef(null);
 
-  const PRODUCTS_CACHE_KEY = "cached_products_v5";
+  const PRODUCTS_CACHE_KEY = 'cached_products_v5';
   const CACHE_DURATION = 2 * 60 * 1000; // 2 menit
-  const POLLING_INTERVAL = 10 * 1000; // 10 detik
+  const POLLING_INTERVAL = 10 * 1000;   // 10 detik
 
   // Update cart count saat mount
   useLayoutEffect(() => {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     setCartCount(cart.length);
   }, [setCartCount]);
 
@@ -52,15 +45,15 @@ function CustomerProducts() {
       const response = await productAPI.getAll({
         active: true,
         limit: 100,
-        sort: "createdAt:desc",
+        sort: 'createdAt:desc'
       });
 
       const productList = response.data?.data || response.data || [];
-      const activeProducts = productList.filter((p) => p.aktif !== false);
-
+      const activeProducts = productList.filter(p => p.aktif !== false);
+      
       return activeProducts;
     } catch (err) {
-      console.error("Gagal memuat produk:", err);
+      console.error('Gagal memuat produk:', err);
       throw err;
     }
   };
@@ -68,48 +61,42 @@ function CustomerProducts() {
   const syncProducts = async (showToast = false) => {
     try {
       const freshProducts = await fetchProductsFromAPI();
-
+      
       setProducts(freshProducts);
-
-      const uniqueCategories = [
-        "all",
-        ...new Set(freshProducts.map((p) => p.category?.nama).filter(Boolean)),
-      ];
+      
+      const uniqueCategories = ['all', ...new Set(freshProducts.map(p => p.category?.nama).filter(Boolean))];
       setCategories(uniqueCategories);
 
       // Simpan ke localStorage
-      localStorage.setItem(
-        PRODUCTS_CACHE_KEY,
-        JSON.stringify({
-          data: freshProducts,
-          categories: uniqueCategories,
-          timestamp: Date.now(),
-        })
-      );
+      localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify({
+        data: freshProducts,
+        categories: uniqueCategories,
+        timestamp: Date.now()
+      }));
 
       cleanupCart(freshProducts);
 
       if (showToast) {
-        console.log("✅ Products synced successfully");
+        console.log('✅ Products synced successfully');
       }
     } catch (err) {
-      console.error("Sync error:", err);
+      console.error('Sync error:', err);
     }
   };
 
   const cleanupCart = (currentProducts) => {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const productIds = new Set(currentProducts.map((p) => p.id));
-
-    const cleanedCart = cart.filter((item) => {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const productIds = new Set(currentProducts.map(p => p.id));
+    
+    const cleanedCart = cart.filter(item => {
       if (!productIds.has(item.id)) return false;
-      const product = currentProducts.find((p) => p.id === item.id);
+      const product = currentProducts.find(p => p.id === item.id);
       if (!product || product.aktif === false) return false;
       return true;
     });
 
     if (cleanedCart.length !== cart.length) {
-      localStorage.setItem("cart", JSON.stringify(cleanedCart));
+      localStorage.setItem('cart', JSON.stringify(cleanedCart));
       setCartCount(cleanedCart.length);
     }
   };
@@ -120,11 +107,7 @@ function CustomerProducts() {
       const cached = localStorage.getItem(PRODUCTS_CACHE_KEY);
       if (cached) {
         try {
-          const {
-            data,
-            categories: cachedCategories,
-            timestamp,
-          } = JSON.parse(cached);
+          const { data, categories: cachedCategories, timestamp } = JSON.parse(cached);
           if (Date.now() - timestamp < CACHE_DURATION) {
             setProducts(data);
             setCategories(cachedCategories);
@@ -141,7 +124,7 @@ function CustomerProducts() {
         setLoading(true);
         await syncProducts(false);
       } catch (err) {
-        toast.error("Gagal memuat produk dari server");
+        toast.error('Gagal memuat produk dari server');
         setProducts([]);
       } finally {
         setLoading(false);
@@ -174,36 +157,29 @@ function CustomerProducts() {
       }
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loading]);
 
   // Update cart count saat ada perubahan cart
   useEffect(() => {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     setCartCount(cart.length);
   }, [setCartCount]);
 
   // Click outside untuk tutup dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        sortDropdownRef.current &&
-        !sortDropdownRef.current.contains(event.target)
-      ) {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target)) {
         setShowSortDropdown(false);
       }
-      if (
-        statusDropdownRef.current &&
-        !statusDropdownRef.current.contains(event.target)
-      ) {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
         setShowStatusDropdown(false);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const openProductDetail = (product) => {
@@ -221,9 +197,7 @@ function CustomerProducts() {
 
   const handleCategoryToggle = (category) => {
     if (tempSelectedCategories.includes(category)) {
-      setTempSelectedCategories(
-        tempSelectedCategories.filter((c) => c !== category)
-      );
+      setTempSelectedCategories(tempSelectedCategories.filter(c => c !== category));
     } else {
       setTempSelectedCategories([...tempSelectedCategories, category]);
     }
@@ -231,7 +205,7 @@ function CustomerProducts() {
 
   // Fungsi untuk hapus satu kategori dari applied
   const removeCategory = (category) => {
-    setAppliedCategories(appliedCategories.filter((c) => c !== category));
+    setAppliedCategories(appliedCategories.filter(c => c !== category));
   };
 
   // Sync temp dengan applied saat modal dibuka
@@ -244,31 +218,31 @@ function CustomerProducts() {
   const combinedSearchQuery = searchQuery || localSearchQuery;
 
   const filteredProducts = products
-    .filter((p) => {
+    .filter(p => {
       // Search: harus dimulai dengan query (seperti aslinya)
       if (combinedSearchQuery) {
         const query = combinedSearchQuery.toLowerCase().trim();
-        const nama = (p.nama || "").toLowerCase().trim();
+        const nama = (p.nama || '').toLowerCase().trim();
         if (!nama.startsWith(query)) return false;
       }
-
+      
       // Filter kategori (multi)
       if (appliedCategories.length > 0) {
         if (!appliedCategories.includes(p.category?.nama)) return false;
       }
 
       // Filter status
-      if (selectedStatus !== "all" && p.status !== selectedStatus) return false;
-
+      if (selectedStatus !== 'all' && p.status !== selectedStatus) return false;
+      
       return true;
     })
     .sort((a, b) => {
       switch (sortBy) {
-        case "price-low":
+        case 'price-low':
           return a.hargaDasar - b.hargaDasar;
-        case "price-high":
+        case 'price-high':
           return b.hargaDasar - a.hargaDasar;
-        case "name":
+        case 'name':
           return a.nama.localeCompare(b.nama);
         default:
           return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
@@ -276,20 +250,20 @@ function CustomerProducts() {
     });
 
   const sortOptions = [
-    { value: "newest", label: "Terbaru" },
-    { value: "price-low", label: "Harga Terendah" },
-    { value: "price-high", label: "Harga Tertinggi" },
-    { value: "name", label: "Nama A-Z" },
+    { value: 'newest', label: 'Terbaru' },
+    { value: 'price-low', label: 'Harga Terendah' },
+    { value: 'price-high', label: 'Harga Tertinggi' },
+    { value: 'name', label: 'Nama A-Z' }
   ];
 
   const statusOptions = [
-    { value: "all", label: "Semua Status" },
-    { value: "READY", label: "Ready Stock" },
-    { value: "PO", label: "Pre Order" },
+    { value: 'all', label: 'Semua Status' },
+    { value: 'READY', label: 'Ready Stock' },
+    { value: 'PO', label: 'Pre Order' }
   ];
 
   const getProductImages = (product) => {
-    return product.gambarUrl?.split("|||").filter((url) => url.trim()) || [];
+    return product.gambarUrl?.split('|||').filter(url => url.trim()) || [];
   };
 
   // Loading skeleton
@@ -309,10 +283,7 @@ function CustomerProducts() {
 
           <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {[...Array(20)].map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-2xl shadow-md border-2 border-gray-100 overflow-hidden"
-              >
+              <div key={i} className="bg-white rounded-2xl shadow-md border-2 border-gray-100 overflow-hidden">
                 <div className="aspect-[3/4] bg-gray-200 animate-pulse"></div>
                 <div className="p-4 space-y-3">
                   <div className="h-5 bg-gray-200 rounded w-4/5 animate-pulse"></div>
@@ -333,7 +304,7 @@ function CustomerProducts() {
       <section className="relative py-16 overflow-hidden bg-gradient-to-br from-[#fef5fb] via-[#fef9f5] to-[#fff8f0] w-full">
         <div className="absolute top-0 right-10 w-[300px] h-[300px] bg-gradient-to-br from-[#cb5094]/15 via-[#d4b896]/8 to-transparent rounded-full blur-2xl"></div>
         <div className="absolute -bottom-10 left-10 w-[250px] h-[250px] bg-gradient-to-tr from-[#d4b896]/10 via-[#cb5094]/8 to-transparent rounded-full blur-2xl"></div>
-
+        
         <div className="relative max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
           <div className="flex justify-center mb-6">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-[#cb5094]/20">
@@ -384,9 +355,7 @@ function CustomerProducts() {
               <span>Kategori</span>
               {appliedCategories.length > 0 && (
                 <div className="w-6 h-6 bg-white/30 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold">
-                    {appliedCategories.length}
-                  </span>
+                  <span className="text-xs font-bold">{appliedCategories.length}</span>
                 </div>
               )}
             </button>
@@ -399,15 +368,8 @@ function CustomerProducts() {
                   onClick={() => setShowStatusDropdown(!showStatusDropdown)}
                   className="flex items-center gap-3 px-6 py-3 bg-white/80 backdrop-blur-md border-2 border-[#cb5094]/20 rounded-full font-semibold text-gray-700 hover:border-[#cb5094]/40 hover:bg-white transition-all shadow-md"
                 >
-                  <span>
-                    {statusOptions.find((opt) => opt.value === selectedStatus)
-                      ?.label || "Semua Status"}
-                  </span>
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform ${
-                      showStatusDropdown ? "rotate-180" : ""
-                    }`}
-                  />
+                  <span>{statusOptions.find(opt => opt.value === selectedStatus)?.label || 'Semua Status'}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showStatusDropdown ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showStatusDropdown && (
@@ -421,14 +383,12 @@ function CustomerProducts() {
                         }}
                         className={`w-full flex items-center justify-between px-6 py-4 text-left transition-all ${
                           selectedStatus === option.value
-                            ? "bg-gradient-to-r from-[#fef5fb] to-[#fff8f0] text-[#cb5094] font-bold"
-                            : "text-gray-700 hover:bg-gradient-to-r hover:from-[#fef5fb]/50 hover:to-[#fff8f0]/50"
+                            ? 'bg-gradient-to-r from-[#fef5fb] to-[#fff8f0] text-[#cb5094] font-bold'
+                            : 'text-gray-700 hover:bg-gradient-to-r hover:from-[#fef5fb]/50 hover:to-[#fff8f0]/50'
                         }`}
                       >
                         <span>{option.label}</span>
-                        {selectedStatus === option.value && (
-                          <Check className="w-5 h-5 text-[#cb5094]" />
-                        )}
+                        {selectedStatus === option.value && <Check className="w-5 h-5 text-[#cb5094]" />}
                       </button>
                     ))}
                   </div>
@@ -441,15 +401,8 @@ function CustomerProducts() {
                   onClick={() => setShowSortDropdown(!showSortDropdown)}
                   className="flex items-center gap-3 px-6 py-3 bg-white/80 backdrop-blur-md border-2 border-[#cb5094]/20 rounded-full font-semibold text-gray-700 hover:border-[#cb5094]/40 hover:bg-white transition-all shadow-md"
                 >
-                  <span>
-                    {sortOptions.find((opt) => opt.value === sortBy)?.label ||
-                      "Terbaru"}
-                  </span>
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform ${
-                      showSortDropdown ? "rotate-180" : ""
-                    }`}
-                  />
+                  <span>{sortOptions.find(opt => opt.value === sortBy)?.label || 'Terbaru'}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showSortDropdown && (
@@ -463,14 +416,12 @@ function CustomerProducts() {
                         }}
                         className={`w-full flex items-center justify-between px-6 py-4 text-left transition-all ${
                           sortBy === option.value
-                            ? "bg-gradient-to-r from-[#fef5fb] to-[#fff8f0] text-[#cb5094] font-bold"
-                            : "text-gray-700 hover:bg-gradient-to-r hover:from-[#fef5fb]/50 hover:to-[#fff8f0]/50"
+                            ? 'bg-gradient-to-r from-[#fef5fb] to-[#fff8f0] text-[#cb5094] font-bold'
+                            : 'text-gray-700 hover:bg-gradient-to-r hover:from-[#fef5fb]/50 hover:to-[#fff8f0]/50'
                         }`}
                       >
                         <span>{option.label}</span>
-                        {sortBy === option.value && (
-                          <Check className="w-5 h-5 text-[#cb5094]" />
-                        )}
+                        {sortBy === option.value && <Check className="w-5 h-5 text-[#cb5094]" />}
                       </button>
                     ))}
                   </div>
@@ -479,23 +430,15 @@ function CustomerProducts() {
 
               {/* View Mode Toggle */}
               <div className="flex gap-2 bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-md border-2 border-[#cb5094]/10">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2.5 rounded-full transition-all ${
-                    viewMode === "grid"
-                      ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
+                <button 
+                  onClick={() => setViewMode('grid')} 
+                  className={`p-2.5 rounded-full transition-all ${viewMode === 'grid' ? 'bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100'}`}
                 >
                   <Grid className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-2.5 rounded-full transition-all ${
-                    viewMode === "list"
-                      ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
+                <button 
+                  onClick={() => setViewMode('list')} 
+                  className={`p-2.5 rounded-full transition-all ${viewMode === 'list' ? 'bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100'}`}
                 >
                   <List className="w-5 h-5" />
                 </button>
@@ -506,14 +449,12 @@ function CustomerProducts() {
           {/* Active Categories - DITURUNKAN KE BAWAH dengan font kecil */}
           {appliedCategories.length > 0 && (
             <div className="mt-5 flex flex-wrap gap-2">
-              {appliedCategories.map((category) => (
+              {appliedCategories.map(category => (
                 <div
                   key={category}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 backdrop-blur-md border border-[#cb5094]/30 rounded-full shadow-sm"
                 >
-                  <span className="text-xs font-medium text-[#cb5094]">
-                    {category}
-                  </span>
+                  <span className="text-xs font-medium text-[#cb5094]">{category}</span>
                   <button
                     onClick={() => removeCategory(category)}
                     className="w-4 h-4 flex items-center justify-center hover:bg-[#cb5094]/10 rounded-full transition-all"
@@ -530,18 +471,14 @@ function CustomerProducts() {
         {filteredProducts.length === 0 ? (
           <div className="text-center py-20">
             <Package className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-gray-700 mb-2">
-              Produk tidak ditemukan
-            </h3>
+            <h3 className="text-xl font-bold text-gray-700 mb-2">Produk tidak ditemukan</h3>
             <p className="text-gray-500">Coba kata kunci atau filter lain</p>
           </div>
-        ) : viewMode === "grid" ? (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {filteredProducts.map((product) => {
+            {filteredProducts.map(product => {
               const images = getProductImages(product);
-              const mainImg =
-                images[0] ||
-                "https://placehold.co/400x533/cccccc/ffffff?text=No+Image";
+              const mainImg = images[0] || 'https://placehold.co/400x533/cccccc/ffffff?text=No+Image';
 
               return (
                 <div
@@ -554,10 +491,7 @@ function CustomerProducts() {
                       src={mainImg}
                       alt={product.nama}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) =>
-                        (e.target.src =
-                          "https://placehold.co/400x533/cccccc/ffffff?text=No+Image")
-                      }
+                      onError={e => e.target.src = 'https://placehold.co/400x533/cccccc/ffffff?text=No+Image'}
                     />
 
                     {product.category && (
@@ -583,11 +517,9 @@ function CustomerProducts() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredProducts.map((product) => {
+            {filteredProducts.map(product => {
               const images = getProductImages(product);
-              const mainImg =
-                images[0] ||
-                "https://placehold.co/400x533/cccccc/ffffff?text=No+Image";
+              const mainImg = images[0] || 'https://placehold.co/400x533/cccccc/ffffff?text=No+Image';
 
               return (
                 <div
@@ -601,10 +533,7 @@ function CustomerProducts() {
                         src={mainImg}
                         alt={product.nama}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) =>
-                          (e.target.src =
-                            "https://placehold.co/400x533/cccccc/ffffff?text=No+Image")
-                        }
+                        onError={e => e.target.src = 'https://placehold.co/400x533/cccccc/ffffff?text=No+Image'}
                       />
                     </div>
 
@@ -619,8 +548,7 @@ function CustomerProducts() {
                           {product.nama}
                         </h3>
                         <p className="text-gray-600 text-[11px] sm:text-sm line-clamp-1">
-                          {product.deskripsi ||
-                            "Premium quality muslimah fashion"}
+                          {product.deskripsi || 'Premium quality muslimah fashion'}
                         </p>
                         <div className="text-lg sm:text-2xl font-bold text-[#cb5094] pt-1">
                           {formatPrice(product.hargaDasar)}
@@ -640,9 +568,7 @@ function CustomerProducts() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl">
             <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-2xl font-bold text-[#cb5094] tracking-tight">
-                Filter Kategori
-              </h3>
+              <h3 className="text-2xl font-bold text-[#cb5094] tracking-tight">Filter Kategori</h3>
               <button
                 onClick={() => setShowCategoryModal(false)}
                 className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full transition-all"
@@ -650,65 +576,54 @@ function CustomerProducts() {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-
+            
             <div className="p-6 max-h-96 overflow-y-auto">
               <div className="space-y-3">
-                {categories
-                  .filter((cat) => cat !== "all")
-                  .map((category) => {
-                    const isSelected =
-                      tempSelectedCategories.includes(category);
-                    const productCount = products.filter(
-                      (p) => p.category?.nama === category
-                    ).length;
-
-                    return (
-                      <label
-                        key={category}
-                        className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all ${
+                {categories.filter(cat => cat !== 'all').map(category => {
+                  const isSelected = tempSelectedCategories.includes(category);
+                  const productCount = products.filter(p => p.category?.nama === category).length;
+                  
+                  return (
+                    <label
+                      key={category}
+                      className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-[#cb5094] to-[#e570b3] shadow-lg'
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                           isSelected
-                            ? "bg-gradient-to-r from-[#cb5094] to-[#e570b3] shadow-lg"
-                            : "bg-gray-50 hover:bg-gray-100"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                              isSelected
-                                ? "bg-white border-white"
-                                : "border-gray-300"
-                            }`}
-                          >
-                            {isSelected && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-[#cb5094] to-[#e570b3]"></div>
-                            )}
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleCategoryToggle(category)}
-                            className="hidden"
-                          />
-                          <span
-                            className={`font-semibold tracking-wide ${
-                              isSelected ? "text-white" : "text-gray-700"
-                            }`}
-                          >
-                            {category}
-                          </span>
+                            ? 'bg-white border-white'
+                            : 'border-gray-300'
+                        }`}>
+                          {isSelected && (
+                            <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-[#cb5094] to-[#e570b3]"></div>
+                          )}
                         </div>
-                        <span
-                          className={`text-xs font-bold px-3 py-1.5 rounded-full ${
-                            isSelected
-                              ? "bg-white/20 text-white"
-                              : "bg-white text-gray-600"
-                          }`}
-                        >
-                          {productCount}
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleCategoryToggle(category)}
+                          className="hidden"
+                        />
+                        <span className={`font-semibold tracking-wide ${
+                          isSelected ? 'text-white' : 'text-gray-700'
+                        }`}>
+                          {category}
                         </span>
-                      </label>
-                    );
-                  })}
+                      </div>
+                      <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : 'bg-white text-gray-600'
+                      }`}>
+                        {productCount}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
@@ -725,9 +640,10 @@ function CustomerProducts() {
                 onClick={handleApplyCategory}
                 className="flex-1 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white py-3.5 rounded-full font-bold hover:shadow-xl transition-all tracking-wide"
               >
-                {tempSelectedCategories.length > 0
+                {tempSelectedCategories.length > 0 
                   ? `Terapkan (${tempSelectedCategories.length})`
-                  : "Tutup"}
+                  : 'Tutup'
+                }
               </button>
             </div>
           </div>

@@ -14,6 +14,7 @@ import {
   Home,
   Plus,
   Search,
+  AlertCircle,
 } from "lucide-react";
 import api from "../utils/api";
 import { formatPrice } from "../utils/formatPrice";
@@ -25,18 +26,14 @@ function CustomerCheckout() {
   const navigate = useNavigate();
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(() => {
-    const saved = localStorage.getItem("checkoutStep");
-    return saved ? parseInt(saved, 10) : 1;
-  });
+  const [step, setStep] = useState(1); // Reset ke 1 setiap kali checkout baru
   const [showItemDetails, setShowItemDetails] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-
-  // === MODE ALAMAT: saved atau manual ===
-  const [addressMode, setAddressMode] = useState("manual"); // 'saved' atau 'manual'
+  const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
+  // Mode alamat: saved atau manual
+  const [addressMode, setAddressMode] = useState("manual");
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [showAddressModal, setShowAddressModal] = useState(false);
-
   const [shippingForm, setShippingForm] = useState({
     namaPenerima: "",
     teleponPenerima: "",
@@ -48,31 +45,32 @@ function CustomerCheckout() {
     kodePos: "",
     lokasiLengkap: "",
   });
-
   const [tipe, setTipe] = useState("READY");
   const [catatan, setCatatan] = useState("");
-
   const [searchResults, setSearchResults] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedArea, setSelectedArea] = useState(null);
-
   const [shippingRates, setShippingRates] = useState([]);
   const [selectedCourier, setSelectedCourier] = useState(null);
   const [loadingRates, setLoadingRates] = useState(false);
-
   const [showPostalDropdown, setShowPostalDropdown] = useState(false);
 
+  // Reset step & bersihkan cache saat pertama kali mount
   useEffect(() => {
+    localStorage.removeItem("checkoutStep");
+    setStep(1);
     loadCart();
     loadUserProfile();
     loadSavedAddresses();
   }, []);
 
+  // Simpan step selama proses checkout
   useEffect(() => {
     localStorage.setItem("checkoutStep", step.toString());
   }, [step]);
 
+  // Debounce pencarian lokasi
   useEffect(() => {
     if (searchQuery.length < 3) {
       setSearchResults([]);
@@ -88,11 +86,25 @@ function CustomerCheckout() {
     return () => clearTimeout(timer);
   }, [searchQuery, selectedArea]);
 
+  // Fetch ongkir otomatis saat step 3 dan kode pos sudah ada
   useEffect(() => {
-    if (step === 3 && selectedArea && cart.length > 0) {
+    if (step === 3 && selectedArea && cart.length > 0 && shippingForm.kodePos) {
       fetchShippingRates();
     }
-  }, [step, selectedArea]);
+  }, [step, selectedArea, shippingForm.kodePos]);
+
+  // Auto-fill alamat default saat masuk step 2
+  useEffect(() => {
+    if (step === 2 && savedAddresses.length > 0) {
+      const defaultAddr = savedAddresses.find((a) => a.isDefault);
+      if (defaultAddr) {
+        fillFormFromAddress(defaultAddr);
+        setAddressMode("saved");
+      } else {
+        setAddressMode("manual");
+      }
+    }
+  }, [step, savedAddresses]);
 
   const loadUserProfile = () => {
     const storedUser = localStorage.getItem("user");
@@ -107,17 +119,18 @@ function CustomerCheckout() {
     }
   };
 
-  const loadSavedAddresses = () => {
-    const stored = sessionStorage.getItem("addresses");
-    if (stored) {
-      const addresses = JSON.parse(stored);
+  const loadSavedAddresses = async () => {
+    try {
+      const response = await api.get("/auth/addresses");
+      const addresses = response.data.data || [];
       setSavedAddresses(addresses);
-
-      // Jika ada alamat default, otomatis gunakan
-      const defaultAddr = addresses.find((a) => a.isDefault);
-      if (defaultAddr) {
-        fillFormFromAddress(defaultAddr);
-        setAddressMode("saved");
+      sessionStorage.setItem("addresses", JSON.stringify(addresses));
+    } catch (error) {
+      console.error("Gagal memuat alamat:", error);
+      const stored = sessionStorage.getItem("addresses");
+      if (stored) {
+        const addresses = JSON.parse(stored);
+        setSavedAddresses(addresses);
       }
     }
   };
@@ -134,20 +147,18 @@ function CustomerCheckout() {
       kodePos: addr.kodePos || "",
       lokasiLengkap: `${addr.kota}, ${addr.provinsi}`,
     });
-
     setSelectedArea({
       cleanName: `${addr.kota}, ${addr.provinsi}`,
       administrative_division_level_2_name: addr.kota,
       administrative_division_level_1_name: addr.provinsi,
       postal_codes: addr.kodePos ? [addr.kodePos] : [],
     });
-
     setSearchQuery(`${addr.kota}, ${addr.provinsi}`);
   };
 
   const switchToManual = () => {
     setAddressMode("manual");
-    loadUserProfile(); // isi nama, telp, email dari profil
+    loadUserProfile();
     setShippingForm((prev) => ({
       ...prev,
       alamatBaris1: "",
@@ -165,17 +176,14 @@ function CustomerCheckout() {
   const fetchAreas = async (query) => {
     try {
       setSearchLoading(true);
-      const response = await api.get("/shipment/areas", {
+      const response = await api.get("/shipments/areas", {
         params: { input: query },
       });
-
       if (response.data?.areas) {
         const areaMap = new Map();
-
         for (const area of response.data.areas) {
           const postalMatch = area.name.match(/\.\s*(\d{5})$/);
           const postalCode = postalMatch ? postalMatch[1] : null;
-
           if (!areaMap.has(area.id)) {
             const cleanName = area.name.replace(/\.\s*\d{5}$/g, "").trim();
             areaMap.set(area.id, {
@@ -191,7 +199,6 @@ function CustomerCheckout() {
             areaMap.get(area.id).postal_codes.push(postalCode);
           }
         }
-
         setSearchResults(Array.from(areaMap.values()));
       }
     } catch (error) {
@@ -203,11 +210,10 @@ function CustomerCheckout() {
   };
 
   const handleAreaSelect = (area) => {
-    const cleanName = area.name.replace(/\.\s*\d+$/g, "").trim();
+    const cleanName =
+      area.cleanName || area.name.replace(/\.\s*\d+$/g, "").trim();
     const updatedArea = { ...area, cleanName };
-
     setSelectedArea(updatedArea);
-
     setShippingForm((prev) => ({
       ...prev,
       provinsi: area.administrative_division_level_1_name || "",
@@ -215,7 +221,6 @@ function CustomerCheckout() {
       lokasiLengkap: cleanName,
       kodePos: "",
     }));
-
     setSearchQuery(cleanName);
     setSearchResults([]);
   };
@@ -225,19 +230,16 @@ function CustomerCheckout() {
       toast.error("Kode pos harus 5 digit angka");
       return;
     }
-
     try {
       setLoadingRates(true);
-
       const items = cart.map((item) => {
-        const length = Number(item.length || item.panjang || 40);
-        const width = Number(item.width || item.lebar || 2);
-        const height = Number(item.height || item.tinggi || 90);
-        const weight = Number(item.weight || item.berat || 1000);
-
+        const length = Number(item.panjang || 40);
+        const width = Number(item.lebar || 2);
+        const height = Number(item.tinggi || 90);
+        const weight = Number(item.berat || 1000);
         return {
           name: String(item.nama || "Produk"),
-          description: String(item.deskripsi || item.nama || "Produk"),
+          description: String(item.nama || "Produk"),
           value: Number(item.harga) || 10000,
           length,
           width,
@@ -246,15 +248,13 @@ function CustomerCheckout() {
           quantity: Number(item.quantity) || 1,
         };
       });
-
       const payload = {
         origin_postal_code: Number(STORE_POSTAL_CODE),
         destination_postal_code: Number(shippingForm.kodePos),
         couriers: "jne,jnt,sicepat,anteraja",
         items,
       };
-
-      const response = await fetch("http://localhost:5000/api/shipment/rates", {
+      const response = await fetch("http://localhost:5000/api/shipments/rates", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -262,7 +262,6 @@ function CustomerCheckout() {
         },
         body: JSON.stringify(payload),
       });
-
       const responseText = await response.text();
       let data;
       try {
@@ -271,26 +270,22 @@ function CustomerCheckout() {
         console.error("Invalid JSON response:", responseText);
         throw new Error("Invalid JSON response from server");
       }
-
       if (!response.ok) {
         throw new Error(
           data.message || data.error || "Gagal menghitung ongkir"
         );
       }
-
       let pricingData = [];
       if (data?.pricing) pricingData = data.pricing;
       else if (data?.data?.pricing) pricingData = data.data.pricing;
       else if (Array.isArray(data?.data)) pricingData = data.data;
       else if (Array.isArray(data)) pricingData = data;
-
       const validRates = pricingData
         .filter((rate) => Number(rate.price) > 0)
         .map((rate, index) => ({
           ...rate,
           uniqueId: `${rate.courier_company}-${rate.courier_code}-${rate.courier_service_code}-${index}`,
         }));
-
       if (validRates.length > 0) {
         validRates.sort((a, b) => a.price - b.price);
         setShippingRates(validRates);
@@ -302,17 +297,14 @@ function CustomerCheckout() {
     } catch (error) {
       console.error("Error fetching rates:", error);
       toast.error(`Tidak dapat memuat ongkir: ${error.message}`);
-
       const totalBerat = cart.reduce((sum, item) => {
-        const weight = Number(item.weight || item.berat || 500);
+        const weight = Number(item.berat || 500);
         const qty = Number(item.quantity || 1);
         return sum + weight * qty;
       }, 0);
-
       let price = 15000;
       let service = "Regular";
       let duration = "3-5 hari kerja";
-
       if (totalBerat > 3000) {
         price = 35000;
         service = "Cargo";
@@ -322,7 +314,6 @@ function CustomerCheckout() {
         service = "Express";
         duration = "2-4 hari kerja";
       }
-
       const fallback = [
         {
           courier_name: "Pengiriman Standar",
@@ -334,7 +325,6 @@ function CustomerCheckout() {
           duration,
         },
       ];
-
       setShippingRates(fallback);
       setSelectedCourier(fallback[0]);
     } finally {
@@ -379,7 +369,6 @@ function CustomerCheckout() {
       toast.error("Kode pos harus 5 digit angka");
       return;
     }
-
     setStep(3);
   };
 
@@ -395,12 +384,10 @@ function CustomerCheckout() {
     try {
       setLoading(true);
       setShowConfirmModal(false);
-
       const items = cart.map((item) => ({
         productVariantId: item.variantId || item.id,
         kuantitas: Number(item.quantity),
       }));
-
       const alamatPengiriman = {
         namaPenerima: shippingForm.namaPenerima,
         teleponPenerima: shippingForm.teleponPenerima,
@@ -410,12 +397,9 @@ function CustomerCheckout() {
         provinsi: shippingForm.provinsi,
         kodePos: String(shippingForm.kodePos).padStart(5, "0"),
       };
-
-      // TAMBAHKAN: Cek apakah ada emailPenerima yang required
       if (shippingForm.emailPenerima) {
         alamatPengiriman.emailPenerima = shippingForm.emailPenerima;
       }
-
       const orderData = {
         items,
         alamatPengiriman,
@@ -423,32 +407,9 @@ function CustomerCheckout() {
         ongkosKirim: Number(selectedCourier.price),
         catatan: catatan || "",
       };
-
-      // DEBUG LOG - Lihat apa yang dikirim
-      console.log(
-        "📦 Creating order with data:",
-        JSON.stringify(orderData, null, 2)
-      );
-      console.log("📋 Items:", items);
-      console.log("📍 Alamat Pengiriman:", alamatPengiriman);
-      console.log("🚚 Ongkir:", selectedCourier);
-
-      const response = await api.post("/orders", orderData);
-
-      console.log("✅ Order created response:", response.data);
-
+      const response = await api.post("orders", orderData);
       const order = response.data.order || response.data;
-      const orderId = order.id;
-
-      console.log("🆔 Order ID for payment:", orderId);
-
-      if (!orderId) {
-        throw new Error("Order ID tidak ditemukan dalam response");
-      }
-
       toast.success("Pesanan berhasil dibuat!");
-
-      // Clear cart
       const fullCart = JSON.parse(localStorage.getItem("cart") || "[]");
       const remainingCart = fullCart.filter(
         (cartItem) =>
@@ -462,61 +423,17 @@ function CustomerCheckout() {
       localStorage.setItem("cart", JSON.stringify(remainingCart));
       localStorage.removeItem("checkoutItems");
       window.dispatchEvent(new Event("cartUpdated"));
+      window.dispatchEvent(new Event("ordersUpdated"));
       localStorage.removeItem("checkoutStep");
-
       setTimeout(() => {
-        navigate(`/customer/payment/${orderId}`, {
-          state: {
-            order: order,
-            fromCheckout: true,
-          },
+        navigate(`/customer/payment/${order.id}`, {
+          state: { order, fromCheckout: true },
         });
       }, 500);
     } catch (error) {
-      console.error("❌ Error creating order:", error);
-      console.error("❌ Error response:", error.response);
-      console.error("❌ Error data:", error.response?.data);
-      console.error("❌ Error status:", error.response?.status);
-      console.error("❌ Error message:", error.message);
-
-      // Tampilkan error yang lebih detail
-      let errorMessage = "Gagal membuat pesanan";
-
-      if (error.response?.data?.message) {
-        const msg = error.response.data.message;
-        if (Array.isArray(msg)) {
-          errorMessage = msg.join(", ");
-          console.error("❌ Validation errors:", msg);
-        } else {
-          errorMessage = msg;
-        }
-      } else if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      // Cek apakah ada field yang missing
-      if (
-        errorMessage.includes("should not be empty") ||
-        errorMessage.includes("must be") ||
-        errorMessage.includes("required")
-      ) {
-        console.error(
-          "❌ VALIDATION ERROR - Kemungkinan ada field yang missing atau format salah"
-        );
-        console.error("📋 Data yang dikirim:", {
-          items,
-          alamatPengiriman,
-          tipe,
-          ongkosKirim: selectedCourier.price,
-          catatan,
-        });
-      }
-
-      toast.error(errorMessage, {
-        duration: 5000,
-      });
+      console.error("Error creating order:", error);
+      const msg = error.response?.data?.message || "Gagal membuat pesanan";
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg);
     } finally {
       setLoading(false);
     }
@@ -550,12 +467,10 @@ function CustomerCheckout() {
                 </button>
               </div>
             </div>
-
             <div className="p-6 space-y-4">
               <p className="text-sm text-gray-600 mb-4">
                 Pastikan semua informasi sudah benar sebelum membuat pesanan.
               </p>
-
               <div className="space-y-3">
                 <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-[#cb5094]">
                   <p className="text-xs font-bold text-gray-500 mb-2">
@@ -582,7 +497,6 @@ function CustomerCheckout() {
                     </div>
                   </div>
                 </div>
-
                 <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-[#cb5094]">
                   <p className="text-xs font-bold text-gray-500 mb-2">
                     ALAMAT PENGIRIMAN
@@ -609,7 +523,6 @@ function CustomerCheckout() {
                     </div>
                   </div>
                 </div>
-
                 <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-[#cb5094]">
                   <p className="text-xs font-bold text-gray-500 mb-2">
                     PENGIRIMAN
@@ -629,7 +542,6 @@ function CustomerCheckout() {
                     </p>
                   </div>
                 </div>
-
                 <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-xl p-4 border-2 border-[#cb5094]">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm font-bold text-gray-700">
@@ -660,7 +572,6 @@ function CustomerCheckout() {
                     </p>
                   </div>
                 </div>
-
                 {catatan && (
                   <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
                     <p className="text-xs font-bold text-yellow-800 mb-1">
@@ -670,7 +581,6 @@ function CustomerCheckout() {
                   </div>
                 )}
               </div>
-
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowConfirmModal(false)}
@@ -694,6 +604,65 @@ function CustomerCheckout() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Batal Checkout */}
+      {showLeaveConfirmation && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-6 h-6 text-[#cb5094]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Batalkan Checkout?
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Proses checkout akan dibatalkan
+                </p>
+              </div>
+            </div>
+            <div className="bg-pink-50 rounded-xl p-4 mb-6 border border-pink-200">
+              <p className="text-sm text-gray-700 leading-relaxed">
+                Apakah Anda yakin ingin membatalkan proses checkout dan kembali
+                ke
+                <strong className="text-[#cb5094]">
+                  {localStorage.getItem("checkoutFrom") === "product-detail"
+                    ? " halaman produk"
+                    : " keranjang belanja"}
+                </strong>
+                ?
+              </p>
+              <p className="text-xs text-gray-600 mt-2">
+                ⚠️ Item yang sudah dipilih akan tetap tersimpan di keranjang
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLeaveConfirmation(false)}
+                className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all"
+              >
+                Lanjutkan Checkout
+              </button>
+              <button
+                onClick={() => {
+                  const from = localStorage.getItem("checkoutFrom");
+                  setShowLeaveConfirmation(false);
+                  localStorage.removeItem("checkoutStep");
+                  if (from === "product-detail") {
+                    navigate(-1);
+                  } else {
+                    navigate("/customer/cart");
+                  }
+                }}
+                className="flex-1 bg-[#cb5094] text-white py-3 rounded-xl font-bold hover:bg-[#b54684] transition-all"
+              >
+                Ya, Batalkan
+              </button>
             </div>
           </div>
         </div>
@@ -733,6 +702,7 @@ function CustomerCheckout() {
                       setAddressMode("saved");
                       setShowAddressModal(false);
                       toast.success("Alamat berhasil dipilih!");
+                      setStep(3);
                     }}
                     className="w-full text-left p-4 border-2 border-gray-200 rounded-xl hover:border-[#cb5094] hover:bg-pink-50 transition-all"
                   >
@@ -783,11 +753,13 @@ function CustomerCheckout() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-10">
           <button
-            onClick={() => navigate("/customer/cart")}
+            onClick={() => setShowLeaveConfirmation(true)}
             className="flex items-center gap-2 text-gray-600 hover:text-[#cb5094] mb-4 font-semibold transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-            Kembali ke Keranjang
+            {localStorage.getItem("checkoutFrom") === "product-detail"
+              ? "Kembali ke Produk"
+              : "Kembali ke Keranjang"}
           </button>
           <h1 className="text-5xl font-bold text-gray-900 mb-3 tracking-tight">
             Checkout
@@ -836,20 +808,19 @@ function CustomerCheckout() {
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            {/* Step 1 - Review Cart */}
             {step === 1 && (
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-[#cb5094]/10">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <ShoppingCart className="w-6 h-6 text-[#cb5094]" />
                   Review Item Anda
                 </h2>
-
                 <div className="space-y-3">
                   {cart.map((item, idx) => {
                     const displayImage =
                       item.variantImageUrl ||
                       item.gambarUrl?.split("|||")[0] ||
                       "https://via.placeholder.com/100?text=No+Image";
-
                     return (
                       <div
                         key={idx}
@@ -904,7 +875,6 @@ function CustomerCheckout() {
                     );
                   })}
                 </div>
-
                 <button
                   onClick={() => setStep(2)}
                   className="w-full mt-6 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white py-4 rounded-xl font-bold hover:shadow-2xl hover:shadow-[#cb5094]/40 transition-all duration-300 transform hover:scale-105"
@@ -914,18 +884,17 @@ function CustomerCheckout() {
               </div>
             )}
 
+            {/* Step 2 - Informasi Pengiriman */}
             {step === 2 && (
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-[#cb5094]/10">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <MapPin className="w-6 h-6 text-[#cb5094]" />
                   Informasi Pengiriman
                 </h2>
-
                 <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
                   <p className="text-sm text-blue-800">
                     <span className="font-bold">Info:</span> Data nama, telepon,
-                    dan email sudah diisi otomatis dari profil Anda. Anda bisa
-                    mengubahnya jika diperlukan.
+                    dan email sudah diisi otomatis dari profil Anda.
                   </p>
                 </div>
 
@@ -952,16 +921,16 @@ function CustomerCheckout() {
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
-                    Input Manual
+                    Alamat Baru
                   </button>
                 </div>
 
-                {/* Ringkasan jika pakai alamat tersimpan */}
+                {/* Ringkasan alamat tersimpan */}
                 {addressMode === "saved" && savedAddresses.length > 0 && (
                   <div className="space-y-6">
                     <div className="bg-green-50 border-2 border-green-200 rounded-xl p-5">
                       <p className="text-green-800 font-medium mb-3">
-                        ✅ Menggunakan alamat default dari profil Anda
+                        ✅ Menggunakan alamat tersimpan
                       </p>
                       <div className="bg-white rounded-xl p-4 border border-gray-200">
                         <p className="font-bold text-gray-900 mb-1">
@@ -978,14 +947,7 @@ function CustomerCheckout() {
                           {shippingForm.lokasiLengkap} {shippingForm.kodePos}
                         </p>
                       </div>
-                      <button
-                        onClick={() => setShowAddressModal(true)}
-                        className="mt-4 text-sm text-[#cb5094] font-bold hover:underline"
-                      >
-                        Ganti alamat tersimpan
-                      </button>
                     </div>
-
                     <button
                       onClick={() => setStep(3)}
                       className="w-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white py-4 rounded-xl font-bold hover:shadow-2xl transition-all"
@@ -1016,7 +978,6 @@ function CustomerCheckout() {
                           required
                         />
                       </div>
-
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
                           Nomor Telepon *
@@ -1041,7 +1002,6 @@ function CustomerCheckout() {
                         </p>
                       </div>
                     </div>
-
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">
                         Email *
@@ -1059,7 +1019,6 @@ function CustomerCheckout() {
                         required
                       />
                     </div>
-
                     <div className="grid sm:grid-cols-3 gap-4">
                       <div className="sm:col-span-2 relative">
                         <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -1076,20 +1035,17 @@ function CustomerCheckout() {
                             required
                           />
                         </div>
-
                         {searchLoading && (
                           <div className="absolute right-3 top-12">
                             <div className="w-5 h-5 border-2 border-[#cb5094] border-t-transparent rounded-full animate-spin"></div>
                           </div>
                         )}
-
                         {searchResults.length > 0 && (
                           <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
                             {searchResults.map((area, index) => {
                               const cleanName =
                                 area.cleanName ||
                                 area.name.replace(/\.\s*\d+$/g, "").trim();
-
                               return (
                                 <button
                                   key={`${area.id}-${index}`}
@@ -1111,7 +1067,6 @@ function CustomerCheckout() {
                           </div>
                         )}
                       </div>
-
                       <div className="relative">
                         <label className="block text-sm font-bold text-gray-700 mb-2">
                           Kode Pos *
@@ -1195,7 +1150,6 @@ function CustomerCheckout() {
                         )}
                       </div>
                     </div>
-
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">
                         Alamat Lengkap *
@@ -1214,7 +1168,6 @@ function CustomerCheckout() {
                         required
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">
                         Detail Alamat (Opsional)
@@ -1232,7 +1185,6 @@ function CustomerCheckout() {
                         placeholder="Patokan, RT/RW, dll"
                       />
                     </div>
-
                     <div className="flex gap-3 pt-4">
                       <button
                         type="button"
@@ -1253,13 +1205,22 @@ function CustomerCheckout() {
               </div>
             )}
 
+            {/* Step 3 - Konfirmasi & Pengiriman */}
             {step === 3 && (
               <div className="space-y-6">
                 <div className="bg-white rounded-2xl shadow-lg p-6 border border-[#cb5094]/10">
-                  <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
-                    <MapPin className="w-5 h-5 text-[#cb5094]" />
-                    Alamat Pengiriman
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-[#cb5094]" />
+                      Alamat Pengiriman
+                    </h3>
+                    <button
+                      onClick={() => setStep(2)}
+                      className="text-sm text-[#cb5094] font-bold hover:underline"
+                    >
+                      Edit Alamat
+                    </button>
+                  </div>
                   <div className="bg-gradient-to-br from-gray-50 to-pink-50/30 rounded-xl p-4 border border-[#cb5094]/10">
                     <p className="font-bold text-gray-900">
                       {shippingForm.namaPenerima}
@@ -1280,12 +1241,6 @@ function CustomerCheckout() {
                       Kode Pos: {shippingForm.kodePos}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setStep(2)}
-                    className="mt-3 text-sm text-[#cb5094] font-bold hover:underline"
-                  >
-                    Edit Alamat
-                  </button>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-lg p-6 border border-[#cb5094]/10">
@@ -1302,7 +1257,6 @@ function CustomerCheckout() {
                       Muat Ulang
                     </button>
                   </div>
-
                   {loadingRates ? (
                     <div className="text-center py-12">
                       <Package className="w-16 h-16 text-[#cb5094] mx-auto mb-4 animate-spin" />
@@ -1316,7 +1270,6 @@ function CustomerCheckout() {
                         const isSelected =
                           selectedCourier?.uniqueId === rate.uniqueId;
                         const isCheapest = idx === 0 && rate.price > 0;
-
                         return (
                           <button
                             key={rate.uniqueId}
@@ -1338,7 +1291,6 @@ function CustomerCheckout() {
                                 GRATIS ONGKIR
                               </div>
                             )}
-
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
                                 <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-300">
@@ -1348,7 +1300,6 @@ function CustomerCheckout() {
                                       .toUpperCase()}
                                   </span>
                                 </div>
-
                                 <div>
                                   <p className="font-bold text-lg text-gray-900">
                                     {rate.courier_name}{" "}
@@ -1368,7 +1319,6 @@ function CustomerCheckout() {
                                   )}
                                 </div>
                               </div>
-
                               <div
                                 className={`w-7 h-7 rounded-full border-4 flex items-center justify-center transition-all ${
                                   isSelected
@@ -1431,11 +1381,11 @@ function CustomerCheckout() {
             )}
           </div>
 
+          {/* Ringkasan Pesanan di samping */}
           <div className="lg:col-span-1">
             <div className="sticky top-20">
               <div className="relative overflow-hidden rounded-2xl shadow-xl border border-white/20 bg-gradient-to-br from-white to-[#cb5094]/20 backdrop-blur-xl">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#cb5094]/10 to-[#e570b3]/10 rounded-full blur-3xl"></div>
-
                 <div className="relative z-10 p-6 space-y-5">
                   <div className="pb-4 border-b border-gray-300">
                     <h3 className="text-xl font-bold text-gray-900 mb-1">
@@ -1445,7 +1395,6 @@ function CustomerCheckout() {
                       {cart.length} item · {totalQuantity} pcs
                     </p>
                   </div>
-
                   <div className="border-b border-gray-300 pb-4">
                     <button
                       onClick={() => setShowItemDetails(!showItemDetails)}
@@ -1458,7 +1407,6 @@ function CustomerCheckout() {
                         <ChevronDown className="w-4 h-4" />
                       )}
                     </button>
-
                     {showItemDetails && (
                       <div className="mt-3 space-y-2 max-h-60 overflow-y-auto">
                         {cart.map((item, idx) => (
@@ -1504,7 +1452,6 @@ function CustomerCheckout() {
                       </div>
                     )}
                   </div>
-
                   <div className="space-y-3">
                     <div className="flex justify-between items-center py-2">
                       <span className="text-xs uppercase tracking-wider font-bold text-gray-700">
@@ -1514,7 +1461,6 @@ function CustomerCheckout() {
                         {formatPrice(calculateSubtotal())}
                       </span>
                     </div>
-
                     <div className="flex justify-between items-center py-2 border-b border-gray-300">
                       <span className="text-xs uppercase tracking-wider font-bold text-gray-700">
                         Ongkir
@@ -1542,7 +1488,6 @@ function CustomerCheckout() {
                         )}
                       </div>
                     </div>
-
                     <div className="pt-3">
                       <div className="flex justify-between items-baseline mb-1">
                         <span className="text-sm font-bold uppercase tracking-wide text-gray-900">
@@ -1556,7 +1501,6 @@ function CustomerCheckout() {
                       </div>
                     </div>
                   </div>
-
                   {step === 3 && selectedCourier?.price === 0 && (
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-3 text-xs font-bold text-green-800">
                       <CheckCircle className="w-4 h-4 inline mr-2" />

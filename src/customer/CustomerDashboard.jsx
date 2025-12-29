@@ -7,8 +7,7 @@ function CustomerDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // State untuk popup logout
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,81 +20,89 @@ function CustomerDashboard() {
     alamat: "Belum diatur",
   });
 
-  useEffect(() => {
-    setTimeout(() => setIsLoaded(true), 100);
-  }, []);
-
-  useEffect(() => {
-    const checkAuth = () => {
-      try {
-        const token = localStorage.getItem("accessToken");
-        const storedUser = localStorage.getItem("user");
-
-        if (!token || !storedUser) {
-          setIsLoading(false);
-          return;
-        }
-
+  // Fungsi untuk membaca dan update userData dari localStorage
+  const loadUserData = () => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
         const user = JSON.parse(storedUser);
-        const role = (user.role || "").toString().trim().toUpperCase();
-
-        if (role === "ADMIN") {
-          setIsLoading(false);
-          return;
-        }
-
         const updatedUser = {
           id: user.id || "",
-          nama: user.nama || "User",
+          nama: user.nama || user.name || "User",
           email: user.email || "user@example.com",
-          nomorTelepon: user.nomorTelepon || user.phone || "08123456789",
+          nomorTelepon:
+            user.nomorTelepon || user.phone || user.telepon || "08123456789",
           alamat: user.alamat || "Belum diatur",
         };
-
         setUserData(updatedUser);
-      } catch (err) {
-        console.error("Error parsing user:", err);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    checkAuth();
-  }, [location.pathname]);
-
-  useEffect(() => {
-    const updateCounts = () => {
-      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-      setCartCount(cart.reduce((sum, item) => sum + (item.quantity || 0), 0));
-    };
-
-    updateCounts();
-
-    window.addEventListener("storage", updateCounts);
-    return () => window.removeEventListener("storage", updateCounts);
-  }, []);
-
-  // Fungsi logout dengan konfirmasi
-  const handleLogout = () => {
-    setShowLogoutConfirm(true);
-  };
-
-  const confirmLogout = () => {
-    try {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("user");
-      localStorage.removeItem("cart"); // optional: bersihkan cart
-      window.location.href = "/";
     } catch (err) {
-      console.error("Logout error:", err);
+      console.error("Error loading user data:", err);
     }
   };
 
-  const cancelLogout = () => {
-    setShowLogoutConfirm(false);
+  // Load awal + sync real-time saat localStorage berubah
+  useEffect(() => {
+    const checkAuthAndLoad = () => {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      loadUserData();
+      setIsLoading(false);
+    };
+
+    checkAuthAndLoad();
+
+    // Dengarkan perubahan di localStorage (dari halaman lain atau dispatch manual)
+    const handleStorageChange = (e) => {
+      if (e.key === "user" || e.key === null) {
+        loadUserData();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    // Polling ringan setiap 2 detik untuk jaga-jaga
+    const interval = setInterval(loadUserData, 2000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Update cart count real-time — HITUNG JUMLAH ITEM UNIK (cart.length), bukan total quantity
+  useEffect(() => {
+    const updateCartCount = () => {
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      setCartCount(cart.length); // ← Hanya hitung jumlah produk unik di keranjang
+    };
+
+    updateCartCount();
+
+    // Dengarkan perubahan storage (misal dari tab lain atau dispatch event)
+    window.addEventListener("storage", updateCartCount);
+
+    return () => {
+      window.removeEventListener("storage", updateCartCount);
+    };
+  }, []);
+
+  const handleLogout = () => setShowLogoutConfirm(true);
+
+  const confirmLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+    window.location.href = "/";
   };
 
+  const cancelLogout = () => setShowLogoutConfirm(false);
+
   const getInitials = (name) => {
+    if (!name || name === "Guest User") return "GU";
     return name
       .split(" ")
       .map((n) => n[0])
@@ -108,7 +115,8 @@ function CustomerDashboard() {
     if (path === "/customer/products") {
       return (
         location.pathname === "/customer/products" ||
-        location.pathname === "/customer"
+        location.pathname === "/customer" ||
+        location.pathname === "/customer/"
       );
     }
     return location.pathname === path;
@@ -190,6 +198,7 @@ function CustomerDashboard() {
                 )}
               </button>
 
+              {/* Nama user di navbar */}
               <button
                 onClick={() => navigate("/customer/profile")}
                 className="hidden sm:flex items-center space-x-3 hover:bg-pink-50 rounded-xl p-2 transition-all duration-200"
@@ -236,7 +245,6 @@ function CustomerDashboard() {
               })}
             </nav>
 
-            {/* Logout Button di Sidebar Desktop */}
             <div className="p-6 border-t border-gray-200">
               <button
                 onClick={handleLogout}
@@ -249,7 +257,7 @@ function CustomerDashboard() {
           </div>
         </aside>
 
-        {/* Menu Hamburger Mobile - Hanya Logout */}
+        {/* Mobile Sidebar */}
         <aside
           className={`lg:hidden fixed top-16 left-0 z-40 w-64 bg-white shadow-2xl transform transition-transform duration-300 h-auto ${
             isSidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -266,7 +274,6 @@ function CustomerDashboard() {
           </div>
         </aside>
 
-        {/* Overlay Sidebar Mobile */}
         {isSidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-30 lg:hidden"
@@ -274,13 +281,12 @@ function CustomerDashboard() {
           />
         )}
 
-        {/* Main Content */}
         <main className="flex-1 lg:ml-64">
           <Outlet context={{ searchQuery, userData, setCartCount }} />
         </main>
       </div>
 
-      {/* Bottom Navigation Mobile */}
+      {/* Bottom Nav Mobile */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl lg:hidden z-50">
         <div className="grid grid-cols-3 h-16">
           {menuItems.map((item) => {
@@ -327,16 +333,13 @@ function CustomerDashboard() {
         </div>
       </nav>
 
-      {/* Popup Konfirmasi Logout */}
+      {/* Popup Logout */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Background Blur */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={cancelLogout}
           />
-
-          {/* Popup Card */}
           <div className="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 animate-in fade-in zoom-in duration-300">
             <div className="text-center mb-6">
               <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg">

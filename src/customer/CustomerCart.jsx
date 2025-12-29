@@ -9,7 +9,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { formatPrice } from "../utils/formatPrice";
-import toast from "react-hot-toast";
+import toast from "react-hot-toast"; // tetap diimport, tapi tanpa override style
 
 function CustomerCart() {
   const [cartItems, setCartItems] = useState([]);
@@ -97,20 +97,7 @@ function CustomerCart() {
     const maxStock = item.stok ?? 999;
 
     if (change > 0 && newQty > maxStock) {
-      toast.error(`Stok tersedia hanya ${maxStock} pcs`, {
-        position: "bottom-right",
-        style: {
-          borderRadius: "12px",
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(10px)",
-          color: "#333",
-          fontSize: "14px",
-          padding: "16px 20px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-          border: "1px solid rgba(0, 0, 0, 0.08)",
-          borderLeft: "4px solid #ef4444",
-        },
-      });
+      toast.error(`Stok tersedia hanya ${maxStock} pcs`);
       return;
     }
 
@@ -120,20 +107,7 @@ function CustomerCart() {
     setCartItems(cart);
     setCartCount(cart.length);
     window.dispatchEvent(new Event("cartUpdated"));
-    toast.success("Jumlah diperbarui", {
-      position: "bottom-right",
-      style: {
-        borderRadius: "12px",
-        background: "rgba(255, 255, 255, 0.95)",
-        backdropFilter: "blur(10px)",
-        color: "#333",
-        fontSize: "14px",
-        padding: "16px 20px",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-        border: "1px solid rgba(0, 0, 0, 0.08)",
-        borderLeft: "4px solid #10b981",
-      },
-    });
+    toast.success("Jumlah diperbarui");
   };
 
   const confirmRemoveFromCart = (index) => {
@@ -157,20 +131,7 @@ function CustomerCart() {
         .map((i) => (i > deleteConfirmIndex ? i - 1 : i))
     );
     window.dispatchEvent(new Event("cartUpdated"));
-    toast.success("Produk dihapus dari keranjang", {
-      position: "bottom-right",
-      style: {
-        borderRadius: "12px",
-        background: "rgba(255, 255, 255, 0.95)",
-        backdropFilter: "blur(10px)",
-        color: "#333",
-        fontSize: "14px",
-        padding: "16px 20px",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-        border: "1px solid rgba(0, 0, 0, 0.08)",
-        borderLeft: "4px solid #10b981",
-      },
-    });
+    toast.success("Produk dihapus dari keranjang");
     setDeleteConfirmIndex(null);
   };
 
@@ -192,20 +153,7 @@ function CustomerCart() {
 
   const handleCheckout = () => {
     if (selectedCount === 0) {
-      toast.error("Pilih minimal 1 produk untuk checkout", {
-        position: "bottom-right",
-        style: {
-          borderRadius: "12px",
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(10px)",
-          color: "#333",
-          fontSize: "14px",
-          padding: "16px 20px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-          border: "1px solid rgba(0, 0, 0, 0.08)",
-          borderLeft: "4px solid #f59e0b",
-        },
-      });
+      toast.error("Pilih minimal 1 produk untuk checkout");
       return;
     }
 

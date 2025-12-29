@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Edit2,
   Save,
@@ -31,7 +31,6 @@ function CustomerProfile() {
     email: "",
     nomorTelepon: "",
   });
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Addresses state
   const [addresses, setAddresses] = useState([]);
@@ -58,6 +57,17 @@ function CustomerProfile() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedArea, setSelectedArea] = useState(null);
   const [showPostalDropdown, setShowPostalDropdown] = useState(false);
+  const [isLocationSelected, setIsLocationSelected] = useState(false);
+
+  // Confirmation modals
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDefaultConfirm, setShowDefaultConfirm] = useState(false);
+  const [addressToDelete, setAddressToDelete] = useState(null);
+  const [addressToDefault, setAddressToDefault] = useState(null);
+
+  // Ref untuk input search
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     loadUserData();
@@ -92,7 +102,6 @@ function CustomerProfile() {
       console.error("Gagal memuat alamat dari server:", error);
       toast.error("Gagal memuat alamat tersimpan");
 
-      // Fallback ke sessionStorage
       const stored = sessionStorage.getItem("addresses");
       if (stored) {
         const addresses = JSON.parse(stored);
@@ -112,7 +121,7 @@ function CustomerProfile() {
 
   // === FITUR PENCARIAN LOKASI ===
   useEffect(() => {
-    if (searchQuery.length < 3) {
+    if (isLocationSelected || searchQuery.length < 3) {
       setSearchResults([]);
       return;
     }
@@ -122,12 +131,12 @@ function CustomerProfile() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, isLocationSelected]);
 
   const fetchAreas = async (query) => {
     try {
       setSearchLoading(true);
-      const response = await api.get("/shipment/areas", {
+      const response = await api.get("/shipments/areas", {
         params: { input: query },
       });
 
@@ -170,6 +179,7 @@ function CustomerProfile() {
     const updatedArea = { ...area, cleanName };
 
     setSelectedArea(updatedArea);
+    setIsLocationSelected(true);
 
     setAddressForm((prev) => ({
       ...prev,
@@ -181,6 +191,11 @@ function CustomerProfile() {
 
     setSearchQuery(cleanName);
     setSearchResults([]);
+    setShowPostalDropdown(false);
+
+    if (searchInputRef.current) {
+      searchInputRef.current.blur();
+    }
   };
 
   const handlePostalSelect = (code) => {
@@ -195,6 +210,9 @@ function CustomerProfile() {
     setEditingAddressId(null);
     setSelectedArea(null);
     setSearchQuery("");
+    setSearchResults([]);
+    setShowPostalDropdown(false);
+    setIsLocationSelected(false);
     setAddressForm({
       label: "",
       namaPenerima: userData.nama,
@@ -214,6 +232,9 @@ function CustomerProfile() {
     setIsAddingAddress(true);
     setSelectedArea(null);
     setSearchQuery(`${addr.kota}, ${addr.provinsi}`);
+    setSearchResults([]);
+    setShowPostalDropdown(false);
+    setIsLocationSelected(true);
     setAddressForm({
       label: addr.label || "",
       namaPenerima: addr.namaPenerima,
@@ -228,7 +249,7 @@ function CustomerProfile() {
     });
   };
 
-  const handleSaveAddress = async () => {
+  const openSaveConfirm = () => {
     if (
       !addressForm.namaPenerima ||
       !addressForm.teleponPenerima ||
@@ -246,65 +267,81 @@ function CustomerProfile() {
       return;
     }
 
+    setShowSaveConfirm(true);
+  };
+
+  const confirmSaveAddress = async () => {
     try {
       const payload = {
         label: addressForm.label || null,
-        namaPenerima: addressForm.namaPenerima, // ✅ camelCase
-        teleponPenerima: addressForm.teleponPenerima, // ✅ camelCase
-        alamatBaris1: addressForm.alamatBaris1, // ✅ camelCase
-        alamatBaris2: addressForm.alamatBaris2 || null, // ✅ camelCase
+        namaPenerima: addressForm.namaPenerima,
+        teleponPenerima: addressForm.teleponPenerima,
+        alamatBaris1: addressForm.alamatBaris1,
+        alamatBaris2: addressForm.alamatBaris2 || null,
         kota: addressForm.kota,
         provinsi: addressForm.provinsi,
-        kodePos: addressForm.kodePos, // ✅ camelCase
+        kodePos: addressForm.kodePos,
         isDefault: addressForm.isDefault || false,
       };
 
-      let response;
       if (editingAddressId) {
-        response = await api.put(
-          `/auth/addresses/${editingAddressId}`,
-          payload
-        );
-        toast.success("Alamat berhasil diperbarui");
+        await api.put(`/auth/addresses/${editingAddressId}`, payload);
       } else {
-        response = await api.post("/auth/addresses", payload);
-        toast.success("Alamat berhasil ditambahkan");
+        await api.post("/auth/addresses", payload);
       }
 
       await loadAddresses();
       setIsAddingAddress(false);
       setEditingAddressId(null);
+      setShowSaveConfirm(false);
+
+      toast.success(
+        editingAddressId
+          ? "Alamat berhasil diperbarui!"
+          : "Alamat baru berhasil disimpan!"
+      );
     } catch (error) {
       console.error("Gagal menyimpan alamat:", error);
       toast.error("Gagal menyimpan alamat");
+      setShowSaveConfirm(false);
     }
   };
 
-  const handleDeleteAddress = async (addressId) => {
-    if (!window.confirm("Apakah Anda yakin ingin menghapus alamat ini?")) {
-      return;
-    }
+  const openDeleteConfirm = (addressId) => {
+    setAddressToDelete(addressId);
+    setShowDeleteConfirm(true);
+  };
 
+  const confirmDeleteAddress = async () => {
     try {
-      await api.delete(`/auth/addresses/${addressId}`);
-      toast.success("Alamat berhasil dihapus");
+      await api.delete(`/auth/addresses/${addressToDelete}`);
       await loadAddresses();
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setShowDeleteConfirm(false);
+      setAddressToDelete(null);
+
+      toast.success("Alamat berhasil dihapus");
     } catch (error) {
       toast.error("Gagal menghapus alamat");
+      setShowDeleteConfirm(false);
     }
   };
 
-  const handleSetDefault = async (addressId) => {
+  const openDefaultConfirm = (addressId) => {
+    setAddressToDefault(addressId);
+    setShowDefaultConfirm(true);
+  };
+
+  const confirmSetDefault = async () => {
     try {
-      await api.put(`/auth/addresses/${addressId}/set-default`);
-      toast.success("Alamat dijadikan default");
+      await api.put(`/auth/addresses/${addressToDefault}/set-default`);
       await loadAddresses();
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setShowDefaultConfirm(false);
+      setAddressToDefault(null);
+
+      toast.success("Alamat dijadikan default");
     } catch (error) {
       toast.error("Gagal mengubah default");
+      setShowDefaultConfirm(false);
     }
   };
 
@@ -313,13 +350,16 @@ function CustomerProfile() {
     setEditingAddressId(null);
     setSelectedArea(null);
     setSearchQuery("");
+    setSearchResults([]);
+    setShowPostalDropdown(false);
+    setIsLocationSelected(false);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 p-3 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-4 sm:mb-6 animate-fadeIn">
+        <div className="mb-4 sm:mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#cb5094] to-[#e570b3] bg-clip-text text-transparent mb-1">
             Profil Saya
           </h1>
@@ -327,18 +367,6 @@ function CustomerProfile() {
             Kelola informasi akun dan data pribadi kamu
           </p>
         </div>
-
-        {/* Success Alert */}
-        {saveSuccess && (
-          <div className="mb-4 bg-green-50 border-2 border-green-200 rounded-xl p-3 flex items-center gap-3 animate-slideDown">
-            <div className="w-7 h-7 bg-green-500 rounded-full flex items-center justify-center">
-              <Check className="w-4 h-4 text-white" />
-            </div>
-            <p className="text-green-800 font-semibold text-sm">
-              Perubahan berhasil disimpan!
-            </p>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Profile Card */}
@@ -563,7 +591,7 @@ function CustomerProfile() {
                           <Edit2 className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={() => handleDeleteAddress(addr.id)}
+                          onClick={() => openDeleteConfirm(addr.id)}
                           className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -583,7 +611,7 @@ function CustomerProfile() {
                     </p>
                     {!addr.isDefault && (
                       <button
-                        onClick={() => handleSetDefault(addr.id)}
+                        onClick={() => openDefaultConfirm(addr.id)}
                         className="mt-2 text-xs text-[#cb5094] font-semibold hover:underline"
                       >
                         Jadikan Default
@@ -690,14 +718,26 @@ function CustomerProfile() {
 
                       <div className="relative">
                         <label className="text-xs font-semibold text-gray-700 mb-1 block">
-                          Kecamatan / Kota / Provinsi *
+                          Kota / Kecamatan / Provinsi *
                         </label>
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                           <input
+                            ref={searchInputRef}
                             type="text"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => {
+                              setSearchQuery(e.target.value);
+                              setIsLocationSelected(false);
+                            }}
+                            onFocus={() => {
+                              if (
+                                !isLocationSelected &&
+                                searchQuery.length >= 3
+                              ) {
+                                fetchAreas(searchQuery);
+                              }
+                            }}
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:border-[#cb5094] focus:ring-2 focus:ring-[#cb5094]/20 focus:outline-none text-xs"
                             placeholder="Ketik minimal 3 karakter..."
                             required
@@ -709,7 +749,7 @@ function CustomerProfile() {
                           )}
                         </div>
 
-                        {searchResults.length > 0 && (
+                        {searchResults.length > 0 && !isLocationSelected && (
                           <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                             {searchResults.map((area, index) => (
                               <button
@@ -838,7 +878,7 @@ function CustomerProfile() {
 
                       <div className="flex gap-2 pt-2">
                         <button
-                          onClick={handleSaveAddress}
+                          onClick={openSaveConfirm}
                           className="flex-1 bg-gradient-to-r from-[#cb5094] to-[#e570b3] text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 hover:shadow-lg transition-all"
                         >
                           <Save className="w-3 h-3" />
@@ -860,6 +900,7 @@ function CustomerProfile() {
           </div>
         </div>
 
+        {/* Informasi Penting */}
         <div className="mt-4 bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -891,22 +932,119 @@ function CustomerProfile() {
         </div>
       </div>
 
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out;
-        }
-        .animate-slideDown {
-          animation: slideDown 0.3s ease-out;
-        }
-      `}</style>
+      {/* Popup Konfirmasi Simpan Alamat */}
+      {showSaveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowSaveConfirm(false)}
+          />
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg">
+                <Save className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Simpan Perubahan Alamat?
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Pastikan semua data alamat sudah benar sebelum disimpan. Alamat
+                ini akan digunakan untuk pengiriman pesanan.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSaveConfirm(false)}
+                className="flex-1 py-3.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmSaveAddress}
+                className="flex-1 py-3.5 rounded-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] hover:from-[#b44682] hover:to-[#c54e96] text-white font-bold shadow-lg hover:shadow-xl transition-all"
+              >
+                Ya, Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Popup Konfirmasi Hapus Alamat */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowDeleteConfirm(false)}
+          />
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg">
+                <Trash2 className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Hapus Alamat Ini?
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Alamat yang dihapus tidak dapat dikembalikan. Pastikan Anda
+                tidak lagi membutuhkan alamat ini.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmDeleteAddress}
+                className="flex-1 py-3.5 rounded-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] hover:from-[#b44682] hover:to-[#c54e96] text-white font-bold shadow-lg hover:shadow-xl transition-all"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Popup Konfirmasi Jadikan Default */}
+      {showDefaultConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowDefaultConfirm(false)}
+          />
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#cb5094] to-[#e570b3] rounded-full flex items-center justify-center shadow-lg">
+                <Star className="w-10 h-10 text-white fill-current" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Jadikan Alamat Default?
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Alamat ini akan menjadi alamat utama untuk semua pengiriman
+                baru. Alamat default sebelumnya akan digantikan.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDefaultConfirm(false)}
+                className="flex-1 py-3.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmSetDefault}
+                className="flex-1 py-3.5 rounded-full bg-gradient-to-r from-[#cb5094] to-[#e570b3] hover:from-[#b44682] hover:to-[#c54e96] text-white font-bold shadow-lg hover:shadow-xl transition-all"
+              >
+                Ya, Jadikan Default
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

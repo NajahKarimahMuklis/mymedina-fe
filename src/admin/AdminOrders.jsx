@@ -17,60 +17,10 @@ import {
   Menu,
   ShoppingBag,
   Edit3,
-  AlertCircle,
 } from "lucide-react";
 import api from "../utils/api";
 import { formatPrice } from "../utils/formatPrice";
-
-function Notification({ type, message, onClose }) {
-  const [isExiting, setIsExiting] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleClose();
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleClose = () => {
-    setIsExiting(true);
-    setTimeout(() => onClose && onClose(), 300);
-  };
-
-  const configs = {
-    success: { bgColor: "bg-green-500", shadowColor: "shadow-green-500/50" },
-    error: { bgColor: "bg-red-500", shadowColor: "shadow-red-500/50" },
-    warning: { bgColor: "bg-yellow-500", shadowColor: "shadow-yellow-500/50" },
-  };
-  const config = configs[type] || configs.success;
-  const Icon =
-    type === "success"
-      ? CheckCircle
-      : type === "warning"
-      ? AlertCircle
-      : XCircle;
-
-  return (
-    <div
-      className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ${
-        isExiting ? "-translate-y-20 opacity-0" : "translate-y-0 opacity-100"
-      }`}
-    >
-      <div
-        className={`flex items-center gap-3 ${config.bgColor} text-white rounded-full px-6 py-3.5 shadow-2xl ${config.shadowColor} min-w-[300px] max-w-lg backdrop-blur-md border border-white/20`}
-      >
-        <Icon className="w-6 h-6 flex-shrink-0" />
-        <p className="text-sm font-medium flex-1 text-center">{message}</p>
-        <button
-          onClick={handleClose}
-          className="hover:bg-white/20 rounded-full p-1.5 transition-all"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
-  );
-}
+import toast from "react-hot-toast";
 
 function AdminOrders() {
   const navigate = useNavigate();
@@ -96,11 +46,6 @@ function AdminOrders() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  const [notification, setNotification] = useState(null);
-  const showNotification = (type, message) => {
-    setNotification({ type, message, id: Date.now() });
-  };
 
   useEffect(() => {
     loadOrders();
@@ -144,7 +89,7 @@ function AdminOrders() {
       setOrders(sortedOrders);
     } catch (err) {
       console.error("Gagal memuat pesanan:", err);
-      showNotification("error", "Gagal memuat pesanan");
+      toast.error("Gagal memuat pesanan");
     } finally {
       setLoading(false);
     }
@@ -253,7 +198,7 @@ function AdminOrders() {
       const shipment = res.data.shipment || res.data;
 
       if (!shipment) {
-        showNotification("warning", "Pengiriman belum dibuat untuk order ini");
+        toast.error("Pengiriman belum dibuat untuk order ini");
         return;
       }
 
@@ -267,12 +212,11 @@ function AdminOrders() {
       setShowUpdateShipment(true);
     } catch (err) {
       if (err.response?.status === 404) {
-        showNotification(
-          "warning",
+        toast.error(
           'Pengiriman belum dibuat. Klik tombol "Kirim" untuk membuat.'
         );
       } else {
-        showNotification("error", "Gagal memuat data pengiriman");
+        toast.error("Gagal memuat data pengiriman");
       }
     }
   };
@@ -280,16 +224,16 @@ function AdminOrders() {
   const handleUpdateShipment = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    const loadingToast = toast.loading("Mengupdate status pengiriman...");
     try {
       await api.put(`/shipments/${selectedShipment.id}/status`, updateForm);
-      showNotification("success", "Status pengiriman berhasil diupdate!");
+      toast.dismiss(loadingToast);
+      toast.success("Status pengiriman berhasil diupdate!");
       setShowUpdateShipment(false);
       loadOrders();
     } catch (err) {
-      showNotification(
-        "error",
-        err.response?.data?.message || "Gagal update status"
-      );
+      toast.dismiss(loadingToast);
+      toast.error(err.response?.data?.message || "Gagal update status");
     } finally {
       setSubmitting(false);
     }
@@ -304,21 +248,23 @@ function AdminOrders() {
   const handleUpdateOrderStatus = async (e) => {
     e.preventDefault();
     if (updateOrderStatusForm.status === selectedOrder.status) {
-      showNotification("warning", "Status baru sama dengan status saat ini");
+      toast.error("Status baru sama dengan status saat ini");
       return;
     }
 
     setSubmitting(true);
+    const loadingToast = toast.loading("Mengubah status pesanan...");
     try {
       await api.put(`/orders/${selectedOrder.id}/status`, {
         status: updateOrderStatusForm.status,
       });
-      showNotification("success", "Status pesanan berhasil diubah!");
+      toast.dismiss(loadingToast);
+      toast.success("Status pesanan berhasil diubah!");
       setShowUpdateOrderStatus(false);
       loadOrders();
     } catch (err) {
-      showNotification(
-        "error",
+      toast.dismiss(loadingToast);
+      toast.error(
         err.response?.data?.message || "Gagal mengubah status pesanan"
       );
     } finally {
@@ -328,15 +274,6 @@ function AdminOrders() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-pink-50 pb-20 lg:pb-0">
-      {notification && (
-        <Notification
-          key={notification.id}
-          type={notification.type}
-          message={notification.message}
-          onClose={() => setNotification(null)}
-        />
-      )}
-
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
         <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -484,6 +421,7 @@ function AdminOrders() {
           </div>
         ) : (
           <>
+            {/* Mobile View */}
             <div className="lg:hidden space-y-4">
               {paginatedOrders.map((order) => {
                 const statusConfig = mapStatusToConfig(order.status);
@@ -550,6 +488,7 @@ function AdminOrders() {
               })}
             </div>
 
+            {/* Desktop Table View */}
             <div className="hidden lg:block bg-white rounded-3xl shadow-sm border border-pink-100 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -671,7 +610,7 @@ function AdminOrders() {
               disabled={currentPage === 1}
               className="px-6 py-3 bg-white border border-gray-200 rounded-xl disabled:opacity-50 hover:bg-pink-50 hover:border-[#cb5094] font-medium"
             >
-              ← Previous
+              ← Sebelumnya
             </button>
             <span className="px-6 py-3 bg-white border border-gray-200 rounded-xl font-medium">
               Halaman {currentPage} dari {totalPages}
@@ -681,11 +620,12 @@ function AdminOrders() {
               disabled={currentPage === totalPages}
               className="px-6 py-3 bg-white border border-gray-200 rounded-xl disabled:opacity-50 hover:bg-pink-50 hover:border-[#cb5094] font-medium"
             >
-              Next →
+              Selanjutnya →
             </button>
           </div>
         )}
 
+        {/* Detail Modal */}
         {showDetailModal && selectedOrder && (
           <div
             className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
@@ -843,6 +783,7 @@ function AdminOrders() {
           </div>
         )}
 
+        {/* Update Shipment Modal */}
         {showUpdateShipment && selectedShipment && (
           <div
             className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
@@ -921,6 +862,7 @@ function AdminOrders() {
           </div>
         )}
 
+        {/* Update Order Status Modal */}
         {showUpdateOrderStatus && selectedOrder && (
           <div
             className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"

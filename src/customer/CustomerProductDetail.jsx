@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { variantAPI } from "../utils/api";
 import { formatPrice } from "../utils/formatPrice";
-import toast from "react-hot-toast";
+import toast from "react-hot-toast"; 
 
 function CustomerProductDetail({ product, onClose, setCartCount }) {
   const navigate = useNavigate();
@@ -148,46 +148,72 @@ function CustomerProductDetail({ product, onClose, setCartCount }) {
 
   const addToCart = (goToCheckout = false) => {
     if (!product.aktif) {
-      toast.error("Produk tidak tersedia", {
-        position: "bottom-right",
-        style: {
-          borderRadius: "12px",
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(10px)",
-          color: "#333",
-          fontSize: "14px",
-          padding: "16px 20px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-          border: "1px solid rgba(0, 0, 0, 0.08)",
-          borderLeft: "4px solid #ef4444",
-        },
-      });
+      toast.error("Produk tidak tersedia");
       return;
     }
 
     if (variants.length > 0 && !selectedVariant) {
-      toast.error("Silakan pilih ukuran dan warna terlebih dahulu", {
-        position: "bottom-right",
-        style: {
-          borderRadius: "12px",
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(10px)",
-          color: "#333",
-          fontSize: "14px",
-          padding: "16px 20px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-          border: "1px solid rgba(0, 0, 0, 0.08)",
-          borderLeft: "4px solid #f59e0b",
-        },
-      });
+      toast.error("Silakan pilih ukuran dan warna terlebih dahulu");
       return;
     }
 
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
     const maxStock = selectedVariant
       ? selectedVariant.stok
       : product.stok || 999;
-    let itemToCheckout = null;
+
+    // Dimensi & berat dari product utama
+    const productWeight = product.berat || 500;
+    const productLength = product.panjang || 20;
+    const productWidth = product.lebar || 15;
+    const productHeight = product.tinggi || 10;
+
+    // === KHUSUS BELI SEKARANG ===
+    if (goToCheckout) {
+      onClose();
+
+      const checkoutItem = {
+        id: product.id,
+        nama: product.nama,
+        gambarUrl: product.gambarUrl,
+        category: product.category,
+        quantity: quantity,
+        harga:
+          selectedVariant?.hargaOverride !== null &&
+          selectedVariant?.hargaOverride !== undefined
+            ? selectedVariant.hargaOverride
+            : product.hargaDasar,
+        berat: productWeight,
+        panjang: productLength,
+        lebar: productWidth,
+        tinggi: productHeight,
+      };
+
+      if (selectedVariant) {
+        const variantImageUrl = colorImages[selectedVariant.warna] || null;
+        Object.assign(checkoutItem, {
+          variantId: selectedVariant.id,
+          variantName: `${selectedVariant.ukuran} - ${selectedVariant.warna}`,
+          size: selectedVariant.ukuran,
+          color: selectedVariant.warna,
+          stok: selectedVariant.stok,
+          variantImageUrl: variantImageUrl,
+        });
+      }
+
+      localStorage.setItem("checkoutItems", JSON.stringify([checkoutItem]));
+      localStorage.setItem("checkoutFrom", "product-detail");
+
+      toast.success(`${product.nama} siap untuk checkout!`, { duration: 2000 });
+
+      setTimeout(() => {
+        navigate("/customer/checkout");
+      }, 300);
+
+      return;
+    }
+
+    // === TAMBAH KE KERANJANG ===
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
     let isUpdatingQuantity = false;
 
     if (selectedVariant) {
@@ -201,59 +227,17 @@ function CustomerProductDetail({ product, onClose, setCartCount }) {
         const newQty = currentQty + quantity;
 
         if (newQty > maxStock) {
-          toast.error(`Stok hanya ${maxStock} pcs`, {
-            position: "bottom-right",
-            style: {
-              borderRadius: "12px",
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)",
-              color: "#333",
-              fontSize: "14px",
-              padding: "16px 20px",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-              border: "1px solid rgba(0, 0, 0, 0.08)",
-              borderLeft: "4px solid #ef4444",
-            },
-          });
+          toast.error(`Stok hanya ${maxStock} pcs`);
           return;
         }
 
         cart[existingIndex].quantity = newQty;
-        itemToCheckout = { ...cart[existingIndex] };
         isUpdatingQuantity = true;
 
-        if (!goToCheckout) {
-          toast.success(`Jumlah diperbarui! Total: ${newQty} item`, {
-            position: "bottom-right",
-            style: {
-              borderRadius: "12px",
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)",
-              color: "#333",
-              fontSize: "14px",
-              padding: "16px 20px",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-              border: "1px solid rgba(0, 0, 0, 0.08)",
-              borderLeft: "4px solid #10b981",
-            },
-          });
-        }
+        toast.success(`Jumlah diperbarui! Total: ${newQty} item`);
       } else {
         if (quantity > maxStock) {
-          toast.error(`Stok hanya ${maxStock} pcs`, {
-            position: "bottom-right",
-            style: {
-              borderRadius: "12px",
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)",
-              color: "#333",
-              fontSize: "14px",
-              padding: "16px 20px",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-              border: "1px solid rgba(0, 0, 0, 0.08)",
-              borderLeft: "4px solid #ef4444",
-            },
-          });
+          toast.error(`Stok hanya ${maxStock} pcs`);
           return;
         }
 
@@ -274,18 +258,16 @@ function CustomerProductDetail({ product, onClose, setCartCount }) {
           size: selectedVariant.ukuran,
           color: selectedVariant.warna,
           quantity,
-          // CRITICAL FIX: Gunakan dimensi variant, fallback ke product jika null
-          berat: selectedVariant.berat ?? product.berat ?? 0,
-          panjang: selectedVariant.panjang ?? product.panjang ?? 0,
-          lebar: selectedVariant.lebar ?? product.lebar ?? 0,
-          tinggi: selectedVariant.tinggi ?? product.tinggi ?? 0,
           harga: finalPrice,
           aktif: product.aktif,
           stok: selectedVariant.stok,
           variantImageUrl: variantImageUrl,
+          berat: productWeight,
+          panjang: productLength,
+          lebar: productWidth,
+          tinggi: productHeight,
         };
         cart.push(newItem);
-        itemToCheckout = { ...newItem };
       }
     } else {
       const existingIndex = cart.findIndex(
@@ -297,59 +279,17 @@ function CustomerProductDetail({ product, onClose, setCartCount }) {
         const newQty = currentQty + quantity;
 
         if (newQty > maxStock) {
-          toast.error(`Stok hanya ${maxStock} pcs`, {
-            position: "bottom-right",
-            style: {
-              borderRadius: "12px",
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)",
-              color: "#333",
-              fontSize: "14px",
-              padding: "16px 20px",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-              border: "1px solid rgba(0, 0, 0, 0.08)",
-              borderLeft: "4px solid #ef4444",
-            },
-          });
+          toast.error(`Stok hanya ${maxStock} pcs`);
           return;
         }
 
         cart[existingIndex].quantity = newQty;
-        itemToCheckout = { ...cart[existingIndex] };
         isUpdatingQuantity = true;
 
-        if (!goToCheckout) {
-          toast.success(`Jumlah diperbarui! Total: ${newQty} item`, {
-            position: "bottom-right",
-            style: {
-              borderRadius: "12px",
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)",
-              color: "#333",
-              fontSize: "14px",
-              padding: "16px 20px",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-              border: "1px solid rgba(0, 0, 0, 0.08)",
-              borderLeft: "4px solid #10b981",
-            },
-          });
-        }
+        toast.success(`Jumlah diperbarui! Total: ${newQty} item`);
       } else {
         if (quantity > maxStock) {
-          toast.error(`Stok hanya ${maxStock} pcs`, {
-            position: "bottom-right",
-            style: {
-              borderRadius: "12px",
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)",
-              color: "#333",
-              fontSize: "14px",
-              padding: "16px 20px",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-              border: "1px solid rgba(0, 0, 0, 0.08)",
-              borderLeft: "4px solid #ef4444",
-            },
-          });
+          toast.error(`Stok hanya ${maxStock} pcs`);
           return;
         }
         const newItem = {
@@ -358,60 +298,24 @@ function CustomerProductDetail({ product, onClose, setCartCount }) {
           gambarUrl: product.gambarUrl,
           category: product.category,
           quantity,
-          berat: product.berat ?? 0,
-          panjang: product.panjang ?? 0,
-          lebar: product.lebar ?? 0,
-          tinggi: product.tinggi ?? 0,
           harga: product.hargaDasar,
           aktif: product.aktif,
           stok: product.stok || 999,
+          berat: productWeight,
+          panjang: productLength,
+          lebar: productWidth,
+          tinggi: productHeight,
         };
         cart.push(newItem);
-        itemToCheckout = { ...newItem };
       }
     }
 
     localStorage.setItem("cart", JSON.stringify(cart));
     setCartCount(cart.length);
 
-    if (goToCheckout && itemToCheckout) {
-      onClose();
-      localStorage.setItem("checkoutItems", JSON.stringify([itemToCheckout]));
-
-      toast.success(`${product.nama} ditambahkan ke checkout!`, {
-        duration: 2000,
-        position: "bottom-right",
-        style: {
-          borderRadius: "12px",
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(10px)",
-          color: "#333",
-          fontSize: "14px",
-          padding: "16px 20px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-          border: "1px solid rgba(0, 0, 0, 0.08)",
-          borderLeft: "4px solid #10b981",
-        },
-      });
-
-      setTimeout(() => {
-        navigate("/customer/checkout");
-      }, 300);
-    } else if (!isUpdatingQuantity) {
+    if (!isUpdatingQuantity) {
       toast.success(`${product.nama} ditambahkan ke keranjang!`, {
         duration: 2000,
-        position: "bottom-right",
-        style: {
-          borderRadius: "12px",
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(10px)",
-          color: "#333",
-          fontSize: "14px",
-          padding: "16px 20px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-          border: "1px solid rgba(0, 0, 0, 0.08)",
-          borderLeft: "4px solid #10b981",
-        },
       });
     }
   };
@@ -790,4 +694,3 @@ function CustomerProductDetail({ product, onClose, setCartCount }) {
 }
 
 export default CustomerProductDetail;
- 

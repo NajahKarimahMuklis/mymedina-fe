@@ -90,7 +90,7 @@ function CustomerPayment() {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [payment?.status, payment?.id]); // Only depend on status and id
+  }, [payment?.status, payment?.id]);
 
   const loadOrderAndPayment = async () => {
     try {

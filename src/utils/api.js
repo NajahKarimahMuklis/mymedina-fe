@@ -106,17 +106,17 @@ export const paymentAPI = {
 export const shipmentAPI = {
   // Search areas (provinces, cities, subdistricts)
   searchAreas: (query) =>
-    api.get("/shipment/areas", { params: { input: query } }),
+    api.get("/shipments/areas", { params: { input: query } }),
 
   // Get shipping rates
-  getRates: (data) => api.post("/shipment/rates", data),
+  getRates: (data) => api.post("/shipments/rates", data),
 
   // Create shipment order (after payment)
-  createOrder: (data) => api.post("/shipment/order", data),
+  createOrder: (data) => api.post("/shipments/order", data),
 
   // Track shipment
   trackShipment: (waybill, courier) =>
-    api.get(`/shipment/tracking/${waybill}/${courier}`),
+    api.get(`/shipments/tracking/${waybill}/${courier}`),
 
   // Get all shipments (admin)
   getAllShipments: () => api.get("/shipments"),

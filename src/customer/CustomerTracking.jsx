@@ -43,7 +43,7 @@ function CustomerTracking() {
       console.log("🔍 Loading tracking for order:", orderId);
 
       // 1. Get order details
-const orderRes = await api.get(`/orders/${orderId}`);
+      const orderRes = await api.get(`/orders/${orderId}`);
       const order = orderRes.data.order || orderRes.data;
       setOrderData(order);
       console.log("📦 Order data:", order);
@@ -51,8 +51,6 @@ const orderRes = await api.get(`/orders/${orderId}`);
       // 2. Get shipment info (resi) dari backend
       try {
         const trackingRes = await api.get(`/shipments/tracking/${orderId}`);
-
-
 
         if (trackingRes.data.hasShipment) {
           const tracking = trackingRes.data.tracking;

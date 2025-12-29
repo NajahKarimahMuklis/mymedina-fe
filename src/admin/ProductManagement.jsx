@@ -20,7 +20,7 @@ import {
   PRODUCT_STATUS,
 } from "../utils/formatPrice";
 import ImageUpload from "../components/ImageUpload";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 function ProductManagement() {
   const [products, setProducts] = useState([]);
@@ -59,7 +59,6 @@ function ProductManagement() {
   const [newColor, setNewColor] = useState("");
   const [newSize, setNewSize] = useState("");
 
-  // State untuk konfirmasi hapus produk
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
 
@@ -110,7 +109,7 @@ function ProductManagement() {
       setTotalPages(pages);
     } catch (error) {
       console.error("Error fetching products:", error);
-      toast.error("Gagal memuat produk", { position: "bottom-right" });
+      toast.error("Gagal memuat produk");
       setProducts([]);
       setTotalProducts(0);
       setTotalPages(1);
@@ -126,7 +125,7 @@ function ProductManagement() {
     } catch (error) {
       console.error("Error fetching categories:", error);
       setCategories([]);
-      toast.error("Gagal memuat kategori", { position: "bottom-right" });
+      toast.error("Gagal memuat kategori");
     }
   };
 
@@ -145,25 +144,21 @@ function ProductManagement() {
     if (newColor.trim() && !colors.includes(newColor.trim())) {
       setColors([...colors, newColor.trim()]);
       setNewColor("");
-      toast.success(`Warna "${newColor.trim()}" ditambahkan`, {
-        position: "bottom-right",
-      });
+      toast.success(`Warna "${newColor.trim()}" ditambahkan`);
     } else if (colors.includes(newColor.trim())) {
-      toast.error("Warna sudah ada dalam daftar", { position: "bottom-right" });
+      toast.error("Warna sudah ada dalam daftar");
     }
   };
 
   const handleRemoveColor = (color) => {
     setColors(colors.filter((c) => c !== color));
     setVariants(variants.filter((v) => v.warna !== color));
-    toast.success(`Warna "${color}" dihapus`, { position: "bottom-right" });
+    toast.success(`Warna "${color}" dihapus`);
   };
 
   const handleNextToSizes = () => {
     if (colors.length === 0) {
-      toast.error("Tambahkan minimal 1 warna terlebih dahulu", {
-        position: "bottom-right",
-      });
+      toast.error("Tambahkan minimal 1 warna terlebih dahulu");
       return;
     }
     setVariantStep("sizes");
@@ -173,27 +168,21 @@ function ProductManagement() {
     if (newSize.trim() && !sizes.includes(newSize.trim())) {
       setSizes([...sizes, newSize.trim()]);
       setNewSize("");
-      toast.success(`Ukuran "${newSize.trim()}" ditambahkan`, {
-        position: "bottom-right",
-      });
+      toast.success(`Ukuran "${newSize.trim()}" ditambahkan`);
     } else if (sizes.includes(newSize.trim())) {
-      toast.error("Ukuran sudah ada dalam daftar", {
-        position: "bottom-right",
-      });
+      toast.error("Ukuran sudah ada dalam daftar");
     }
   };
 
   const handleRemoveSize = (size) => {
     setSizes(sizes.filter((s) => s !== size));
     setVariants(variants.filter((v) => v.ukuran !== size));
-    toast.success(`Ukuran "${size}" dihapus`, { position: "bottom-right" });
+    toast.success(`Ukuran "${size}" dihapus`);
   };
 
   const handleNextToStocks = () => {
     if (sizes.length === 0) {
-      toast.error("Tambahkan minimal 1 ukuran terlebih dahulu", {
-        position: "bottom-right",
-      });
+      toast.error("Tambahkan minimal 1 ukuran terlebih dahulu");
       return;
     }
 
@@ -234,8 +223,7 @@ function ProductManagement() {
       !formData.tinggi
     ) {
       toast.error(
-        "Kategori, nama, harga, berat, panjang, lebar, dan tinggi wajib diisi",
-        { position: "bottom-right" }
+        "Kategori, nama, harga, berat, panjang, lebar, dan tinggi wajib diisi"
       );
       return;
     }
@@ -256,8 +244,7 @@ function ProductManagement() {
     };
 
     const toastId = toast.loading(
-      editingProduct ? "Mengupdate produk..." : "Membuat produk...",
-      { position: "bottom-right" }
+      editingProduct ? "Mengupdate produk..." : "Membuat produk..."
     );
 
     try {
@@ -306,20 +293,11 @@ function ProductManagement() {
       toast.dismiss(toastId);
 
       if (editingProduct) {
-        toast.success("Produk berhasil diupdate!", {
-          position: "bottom-right",
-          duration: 4000,
-        });
+        toast.success("Produk berhasil diupdate!");
       } else if (variants.length > 0) {
-        toast.success(`Produk dan ${successCount} varian berhasil dibuat!`, {
-          position: "bottom-right",
-          duration: 4000,
-        });
+        toast.success(`Produk dan ${successCount} varian berhasil dibuat!`);
       } else {
-        toast.success("Produk berhasil dibuat!", {
-          position: "bottom-right",
-          duration: 4000,
-        });
+        toast.success("Produk berhasil dibuat!");
       }
 
       handleCancelForm();
@@ -327,7 +305,7 @@ function ProductManagement() {
     } catch (error) {
       console.error("Error saving product:", error);
       toast.dismiss(toastId);
-      toast.error("Gagal menyimpan produk", { position: "bottom-right" });
+      toast.error("Gagal menyimpan produk");
     }
   };
 
@@ -368,20 +346,16 @@ function ProductManagement() {
   const confirmDelete = async () => {
     if (!productToDelete) return;
 
-    const toastId = toast.loading("Menghapus produk...", {
-      position: "bottom-right",
-    });
+    const toastId = toast.loading("Menghapus produk...");
 
     try {
       await productAPI.delete(productToDelete.id);
       toast.dismiss(toastId);
-      toast.success(`Produk "${productToDelete.nama}" berhasil dihapus!`, {
-        position: "bottom-right",
-      });
+      toast.success(`Produk "${productToDelete.nama}" berhasil dihapus!`);
       fetchProducts();
     } catch (error) {
       toast.dismiss(toastId);
-      toast.error("Gagal menghapus produk", { position: "bottom-right" });
+      toast.error("Gagal menghapus produk");
     } finally {
       setShowDeleteConfirmation(false);
       setProductToDelete(null);
@@ -421,7 +395,7 @@ function ProductManagement() {
       ...formData,
       gambarUrls: [...formData.gambarUrls, url],
     });
-    toast.success("Gambar berhasil diupload!", { position: "bottom-right" });
+    toast.success("Gambar berhasil diupload!");
   };
 
   const handleRemoveImage = (urlToRemove) => {
@@ -429,7 +403,7 @@ function ProductManagement() {
       ...formData,
       gambarUrls: formData.gambarUrls.filter((url) => url !== urlToRemove),
     });
-    toast.success("Gambar berhasil dihapus!", { position: "bottom-right" });
+    toast.success("Gambar berhasil dihapus!");
   };
 
   const handleViewVariants = (productId) => {
@@ -809,7 +783,7 @@ function ProductManagement() {
           </div>
         )}
 
-        {/* Form Modal - FULL LENGKAP */}
+        {/* Form Modal */}
         {showForm && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-y-auto flex flex-col">
@@ -1347,45 +1321,6 @@ function ProductManagement() {
           </div>
         )}
       </div>
-
-      {/* Toast Notification Container */}
-      <Toaster
-        position="bottom-right"
-        reverseOrder={false}
-        gutter={12}
-        containerStyle={{
-          bottom: 40,
-          right: 20,
-        }}
-        toastOptions={{
-          duration: 4000,
-          style: {
-            borderRadius: "12px",
-            background: "rgba(255, 255, 255, 0.95)",
-            backdropFilter: "blur(10px)",
-            color: "#333",
-            fontSize: "14px",
-            padding: "16px 20px",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
-            border: "1px solid rgba(0, 0, 0, 0.08)",
-          },
-          success: {
-            style: {
-              borderLeft: "4px solid #10b981",
-            },
-          },
-          error: {
-            style: {
-              borderLeft: "4px solid #ef4444",
-            },
-          },
-          loading: {
-            style: {
-              borderLeft: "4px solid #f59e0b",
-            },
-          },
-        }}
-      />
     </div>
   );
 }
