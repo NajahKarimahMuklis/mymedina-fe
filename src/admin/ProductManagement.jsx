@@ -10,6 +10,7 @@ import {
   X,
   ChevronRight,
   Package,
+  AlertCircle,
 } from "lucide-react";
 import { productAPI, categoryAPI, variantAPI } from "../utils/api";
 import {
@@ -19,7 +20,7 @@ import {
   PRODUCT_STATUS,
 } from "../utils/formatPrice";
 import ImageUpload from "../components/ImageUpload";
-import { Notification, useNotification } from "../pages/Notifications";
+import toast, { Toaster } from "react-hot-toast";
 
 function ProductManagement() {
   const [products, setProducts] = useState([]);
@@ -32,7 +33,6 @@ function ProductManagement() {
   const [editingProduct, setEditingProduct] = useState(null);
   const navigate = useNavigate();
 
-  const notification = useNotification();
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
@@ -58,6 +58,10 @@ function ProductManagement() {
   const [variants, setVariants] = useState([]);
   const [newColor, setNewColor] = useState("");
   const [newSize, setNewSize] = useState("");
+
+  // State untuk konfirmasi hapus produk
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
 
   useEffect(() => {
     fetchProducts();
@@ -87,7 +91,6 @@ function ProductManagement() {
       const productsData = response.data?.data || response.data || [];
       setProducts(productsData);
 
-      // FIX TOTAL PRODUCTS & PAGES
       let total = 0;
       let pages = 1;
 
@@ -107,7 +110,7 @@ function ProductManagement() {
       setTotalPages(pages);
     } catch (error) {
       console.error("Error fetching products:", error);
-      notification.error("Gagal memuat produk");
+      toast.error("Gagal memuat produk", { position: "bottom-right" });
       setProducts([]);
       setTotalProducts(0);
       setTotalPages(1);
@@ -123,6 +126,7 @@ function ProductManagement() {
     } catch (error) {
       console.error("Error fetching categories:", error);
       setCategories([]);
+      toast.error("Gagal memuat kategori", { position: "bottom-right" });
     }
   };
 
@@ -141,17 +145,25 @@ function ProductManagement() {
     if (newColor.trim() && !colors.includes(newColor.trim())) {
       setColors([...colors, newColor.trim()]);
       setNewColor("");
+      toast.success(`Warna "${newColor.trim()}" ditambahkan`, {
+        position: "bottom-right",
+      });
+    } else if (colors.includes(newColor.trim())) {
+      toast.error("Warna sudah ada dalam daftar", { position: "bottom-right" });
     }
   };
 
   const handleRemoveColor = (color) => {
     setColors(colors.filter((c) => c !== color));
     setVariants(variants.filter((v) => v.warna !== color));
+    toast.success(`Warna "${color}" dihapus`, { position: "bottom-right" });
   };
 
   const handleNextToSizes = () => {
     if (colors.length === 0) {
-      notification.warning("Tambahkan minimal 1 warna");
+      toast.error("Tambahkan minimal 1 warna terlebih dahulu", {
+        position: "bottom-right",
+      });
       return;
     }
     setVariantStep("sizes");
@@ -161,17 +173,27 @@ function ProductManagement() {
     if (newSize.trim() && !sizes.includes(newSize.trim())) {
       setSizes([...sizes, newSize.trim()]);
       setNewSize("");
+      toast.success(`Ukuran "${newSize.trim()}" ditambahkan`, {
+        position: "bottom-right",
+      });
+    } else if (sizes.includes(newSize.trim())) {
+      toast.error("Ukuran sudah ada dalam daftar", {
+        position: "bottom-right",
+      });
     }
   };
 
   const handleRemoveSize = (size) => {
     setSizes(sizes.filter((s) => s !== size));
     setVariants(variants.filter((v) => v.ukuran !== size));
+    toast.success(`Ukuran "${size}" dihapus`, { position: "bottom-right" });
   };
 
   const handleNextToStocks = () => {
     if (sizes.length === 0) {
-      notification.warning("Tambahkan minimal 1 ukuran");
+      toast.error("Tambahkan minimal 1 ukuran terlebih dahulu", {
+        position: "bottom-right",
+      });
       return;
     }
 
@@ -211,8 +233,9 @@ function ProductManagement() {
       !formData.lebar ||
       !formData.tinggi
     ) {
-      notification.warning(
-        "Kategori, nama, harga, berat, panjang, lebar, dan tinggi wajib diisi"
+      toast.error(
+        "Kategori, nama, harga, berat, panjang, lebar, dan tinggi wajib diisi",
+        { position: "bottom-right" }
       );
       return;
     }
@@ -232,59 +255,79 @@ function ProductManagement() {
       gambarUrl: formData.gambarUrls.join("|||"),
     };
 
+    const toastId = toast.loading(
+      editingProduct ? "Mengupdate produk..." : "Membuat produk...",
+      { position: "bottom-right" }
+    );
+
     try {
+      let newProductId = editingProduct?.id;
+
       if (editingProduct) {
         await productAPI.update(editingProduct.id, payload);
-        notification.success("Produk berhasil diupdate!");
       } else {
         const response = await productAPI.create(payload);
-        const newProductId = response.data?.data?.id;
+        newProductId = response.data?.data?.id || response.data?.id;
 
         if (!newProductId) throw new Error("Product ID tidak ditemukan");
+      }
 
-        if (variants.length > 0) {
-          let successCount = 0;
-          for (const variant of variants) {
-            try {
-              const baseSlug = formData.slug.toUpperCase().replace(/-/g, "");
-              const size = variant.ukuran.toUpperCase().replace(/\s+/g, "");
-              const color = variant.warna.toUpperCase().replace(/\s+/g, "");
-              const timestamp = Date.now().toString().slice(-6);
-              const random = Math.random()
-                .toString(36)
-                .substring(2, 5)
-                .toUpperCase();
-              const sku = `${baseSlug}-${size}-${color}-${timestamp}-${random}`;
+      let successCount = 0;
+      if (!editingProduct && variants.length > 0 && newProductId) {
+        for (const variant of variants) {
+          try {
+            const baseSlug = formData.slug.toUpperCase().replace(/-/g, "");
+            const size = variant.ukuran.toUpperCase().replace(/\s+/g, "");
+            const color = variant.warna.toUpperCase().replace(/\s+/g, "");
+            const timestamp = Date.now().toString().slice(-6);
+            const random = Math.random()
+              .toString(36)
+              .substring(2, 5)
+              .toUpperCase();
+            const sku = `${baseSlug}-${size}-${color}-${timestamp}-${random}`;
 
-              const variantPayload = {
-                sku,
-                ukuran: variant.ukuran,
-                warna: variant.warna,
-                stok: variant.stok,
-                hargaOverride: null,
-                aktif: true,
-              };
+            const variantPayload = {
+              sku,
+              ukuran: variant.ukuran,
+              warna: variant.warna,
+              stok: variant.stok,
+              hargaOverride: null,
+              aktif: true,
+            };
 
-              await variantAPI.create(newProductId, variantPayload);
-              successCount++;
-            } catch (variantError) {
-              console.error("Failed to create variant:", variantError);
-            }
+            await variantAPI.create(newProductId, variantPayload);
+            successCount++;
+          } catch (variantError) {
+            console.error("Failed to create variant:", variantError);
           }
-
-          notification.success(
-            `Produk dan ${successCount} varian berhasil dibuat!`
-          );
-        } else {
-          notification.success("Produk berhasil dibuat!");
         }
+      }
+
+      toast.dismiss(toastId);
+
+      if (editingProduct) {
+        toast.success("Produk berhasil diupdate!", {
+          position: "bottom-right",
+          duration: 4000,
+        });
+      } else if (variants.length > 0) {
+        toast.success(`Produk dan ${successCount} varian berhasil dibuat!`, {
+          position: "bottom-right",
+          duration: 4000,
+        });
+      } else {
+        toast.success("Produk berhasil dibuat!", {
+          position: "bottom-right",
+          duration: 4000,
+        });
       }
 
       handleCancelForm();
       fetchProducts();
     } catch (error) {
       console.error("Error saving product:", error);
-      notification.error("Gagal menyimpan produk");
+      toast.dismiss(toastId);
+      toast.error("Gagal menyimpan produk", { position: "bottom-right" });
     }
   };
 
@@ -317,16 +360,37 @@ function ProductManagement() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id, nama) => {
-    if (!confirm(`Yakin ingin menghapus produk "${nama}"?`)) return;
+  const handleDelete = (id, nama) => {
+    setProductToDelete({ id, nama });
+    setShowDeleteConfirmation(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
+
+    const toastId = toast.loading("Menghapus produk...", {
+      position: "bottom-right",
+    });
 
     try {
-      await productAPI.delete(id);
-      notification.success(`Produk "${nama}" berhasil dihapus!`);
+      await productAPI.delete(productToDelete.id);
+      toast.dismiss(toastId);
+      toast.success(`Produk "${productToDelete.nama}" berhasil dihapus!`, {
+        position: "bottom-right",
+      });
       fetchProducts();
     } catch (error) {
-      notification.error("Gagal menghapus produk");
+      toast.dismiss(toastId);
+      toast.error("Gagal menghapus produk", { position: "bottom-right" });
+    } finally {
+      setShowDeleteConfirmation(false);
+      setProductToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirmation(false);
+    setProductToDelete(null);
   };
 
   const handleCancelForm = () => {
@@ -357,7 +421,7 @@ function ProductManagement() {
       ...formData,
       gambarUrls: [...formData.gambarUrls, url],
     });
-    notification.success("Gambar berhasil diupload!");
+    toast.success("Gambar berhasil diupload!", { position: "bottom-right" });
   };
 
   const handleRemoveImage = (urlToRemove) => {
@@ -365,7 +429,7 @@ function ProductManagement() {
       ...formData,
       gambarUrls: formData.gambarUrls.filter((url) => url !== urlToRemove),
     });
-    notification.success("Gambar berhasil dihapus!");
+    toast.success("Gambar berhasil dihapus!", { position: "bottom-right" });
   };
 
   const handleViewVariants = (productId) => {
@@ -375,17 +439,6 @@ function ProductManagement() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-pink-50 pb-20 lg:pb-0">
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
-        {/* Notification */}
-        <div className="fixed top-16 right-4 z-[100] space-y-2">
-          {notification.notifications.map((notif) => (
-            <Notification
-              key={notif.id}
-              type={notif.type}
-              message={notif.message}
-            />
-          ))}
-        </div>
-
         {/* Header */}
         <div className="bg-white rounded-3xl shadow-sm border border-pink-100 p-5 md:p-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -707,536 +760,632 @@ function ProductManagement() {
             )}
           </div>
         )}
-      </div>
 
-      {/* Form Modal - FULL LENGKAP */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-y-auto flex flex-col">
-            <div className="bg-gradient-to-r from-[#cb5094] to-[#e570b3] px-6 py-5 flex justify-between items-center rounded-t-3xl sticky top-0 z-10">
-              <div>
-                <h2 className="text-xl font-bold text-white">
-                  {editingProduct ? "Edit Produk" : "Tambah Produk Baru"}
-                </h2>
-                <p className="text-white/90 text-sm mt-1">
-                  {editingProduct
-                    ? "Perbarui informasi produk"
-                    : "Buat produk baru dengan varian"}
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirmation && productToDelete && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-[#cb5094]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    Konfirmasi Hapus Produk
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Tindakan ini tidak dapat dibatalkan
+                  </p>
+                </div>
+              </div>
+              <div className="bg-pink-50 rounded-xl p-4 mb-6 border border-pink-200">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  Apakah Anda yakin ingin menghapus produk{" "}
+                  <strong className="text-[#cb5094]">
+                    "{productToDelete.nama}"
+                  </strong>
+                  ?
+                </p>
+                <p className="text-xs text-gray-600 mt-2">
+                  Semua data produk dan varian terkait akan dihapus secara
+                  permanen
                 </p>
               </div>
-              <button
-                onClick={handleCancelForm}
-                className="text-white hover:bg-white/20 p-2 rounded-lg transition-all"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Left Column */}
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Kategori <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.categoryId}
-                      onChange={(e) =>
-                        setFormData({ ...formData, categoryId: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#cb5094]"
-                      required
-                    >
-                      <option value="">Pilih Kategori</option>
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.nama}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Nama Produk <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.nama}
-                      onChange={handleNamaChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#cb5094]"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Slug
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.slug}
-                      onChange={(e) =>
-                        setFormData({ ...formData, slug: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl font-mono text-sm bg-gray-50"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Harga Dasar <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.hargaDasar}
-                      onChange={(e) =>
-                        setFormData({ ...formData, hargaDasar: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#cb5094]"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Berat (g) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.berat}
-                      onChange={(e) =>
-                        setFormData({ ...formData, berat: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Panjang (cm) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.panjang}
-                        onChange={(e) =>
-                          setFormData({ ...formData, panjang: e.target.value })
-                        }
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Lebar (cm) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.lebar}
-                        onChange={(e) =>
-                          setFormData({ ...formData, lebar: e.target.value })
-                        }
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Tinggi (cm) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.tinggi}
-                        onChange={(e) =>
-                          setFormData({ ...formData, tinggi: e.target.value })
-                        }
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData({ ...formData, status: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                    >
-                      {Object.keys(PRODUCT_STATUS).map((status) => (
-                        <option key={status} value={status}>
-                          {getStatusLabel(status)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-4 bg-pink-50 rounded-xl border border-pink-100">
-                    <input
-                      type="checkbox"
-                      id="aktif"
-                      checked={formData.aktif}
-                      onChange={(e) =>
-                        setFormData({ ...formData, aktif: e.target.checked })
-                      }
-                      className="w-5 h-5 text-[#cb5094] rounded"
-                    />
-                    <label
-                      htmlFor="aktif"
-                      className="text-sm font-semibold text-gray-700"
-                    >
-                      Produk Aktif
-                    </label>
-                  </div>
-                </div>
-
-                {/* Right Column */}
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Gambar Produk{" "}
-                      {formData.gambarUrls.length > 0 &&
-                        `(${formData.gambarUrls.length})`}
-                    </label>
-                    {formData.gambarUrls.length > 0 && (
-                      <div className="mb-4">
-                        <div className="flex gap-4 overflow-x-auto pb-2">
-                          {formData.gambarUrls.map((url, idx) => (
-                            <div
-                              key={idx}
-                              className="relative group w-32 h-32 flex-shrink-0"
-                            >
-                              <img
-                                src={url}
-                                alt=""
-                                className="w-full h-full object-cover rounded-xl border-2 border-gray-200"
-                              />
-
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveImage(url)}
-                                className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-
-                              {idx === 0 && (
-                                <div className="absolute bottom-2 left-2 bg-[#cb5094] text-white px-2 py-1 rounded text-xs font-bold">
-                                  Utama
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <ImageUpload
-                      onImageUploaded={handleImageUploaded}
-                      currentImage=""
-                    />
-                    <p className="text-xs text-gray-500 mt-2">
-                      Foto pertama akan jadi foto utama
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Deskripsi
-                    </label>
-                    <textarea
-                      value={formData.deskripsi}
-                      onChange={(e) =>
-                        setFormData({ ...formData, deskripsi: e.target.value })
-                      }
-                      rows="8"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[#cb5094]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Varian Section - HANYA UNTUK TAMBAH PRODUK BARU */}
-              {!editingProduct && (
-                <div className="mt-8 pt-8 border-t border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-900 mb-6">
-                    Varian Produk (Opsional)
-                  </h3>
-
-                  <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-8">
-                    <div
-                      className={`flex flex-col items-center ${
-                        variantStep === "colors"
-                          ? "text-[#cb5094]"
-                          : "text-gray-400"
-                      }`}
-                    >
-                      <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold mb-2 ${
-                          variantStep === "colors"
-                            ? "bg-[#cb5094] text-white"
-                            : "bg-gray-200"
-                        }`}
-                      >
-                        1
-                      </div>
-                      <span className="font-semibold text-sm">Warna</span>
-                    </div>
-                    <ChevronRight className="w-6 h-6 text-gray-400 rotate-90 md:rotate-0" />
-                    <div
-                      className={`flex flex-col items-center ${
-                        variantStep === "sizes"
-                          ? "text-[#cb5094]"
-                          : "text-gray-400"
-                      }`}
-                    >
-                      <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold mb-2 ${
-                          variantStep === "sizes"
-                            ? "bg-[#cb5094] text-white"
-                            : "bg-gray-200"
-                        }`}
-                      >
-                        2
-                      </div>
-                      <span className="font-semibold text-sm">Ukuran</span>
-                    </div>
-                    <ChevronRight className="w-6 h-6 text-gray-400 rotate-90 md:rotate-0" />
-                    <div
-                      className={`flex flex-col items-center ${
-                        variantStep === "stocks"
-                          ? "text-[#cb5094]"
-                          : "text-gray-400"
-                      }`}
-                    >
-                      <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold mb-2 ${
-                          variantStep === "stocks"
-                            ? "bg-[#cb5094] text-white"
-                            : "bg-gray-200"
-                        }`}
-                      >
-                        3
-                      </div>
-                      <span className="font-semibold text-sm">Stok</span>
-                    </div>
-                  </div>
-
-                  {variantStep === "colors" && (
-                    <div className="bg-pink-50 rounded-xl p-6 border border-pink-100">
-                      <h4 className="font-bold text-gray-800 mb-4">
-                        Langkah 1: Tambahkan Warna
-                      </h4>
-                      {colors.length > 0 && (
-                        <div className="flex flex-wrap gap-3 mb-4">
-                          {colors.map((color) => (
-                            <span
-                              key={color}
-                              className="bg-white border border-[#cb5094] text-[#cb5094] px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2"
-                            >
-                              {color}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveColor(color)}
-                                className="hover:bg-pink-100 rounded-full p-1"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <input
-                          type="text"
-                          placeholder="Contoh: Hitam, Putih, Merah"
-                          value={newColor}
-                          onChange={(e) => setNewColor(e.target.value)}
-                          onKeyPress={(e) =>
-                            e.key === "Enter" &&
-                            (e.preventDefault(), handleAddColor())
-                          }
-                          className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddColor}
-                          className="bg-[#cb5094] text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-[#b54684]"
-                        >
-                          Tambah
-                        </button>
-                      </div>
-                      {colors.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleNextToSizes}
-                          className="w-full mt-4 bg-[#cb5094] text-white py-3 rounded-xl font-semibold hover:bg-[#b54684] flex items-center justify-center gap-2"
-                        >
-                          Lanjut ke Ukuran <ChevronRight className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {variantStep === "sizes" && (
-                    <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-bold text-gray-800">
-                          Langkah 2: Tambahkan Ukuran
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={() => setVariantStep("colors")}
-                          className="text-sm text-gray-600 hover:text-gray-800"
-                        >
-                          ← Kembali
-                        </button>
-                      </div>
-                      {sizes.length > 0 && (
-                        <div className="flex flex-wrap gap-3 mb-4">
-                          {sizes.map((size) => (
-                            <span
-                              key={size}
-                              className="bg-white border border-blue-500 text-blue-600 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2"
-                            >
-                              {size}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveSize(size)}
-                                className="hover:bg-blue-100 rounded-full p-1"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <input
-                          type="text"
-                          placeholder="Contoh: S, M, L, XL"
-                          value={newSize}
-                          onChange={(e) => setNewSize(e.target.value)}
-                          onKeyPress={(e) =>
-                            e.key === "Enter" &&
-                            (e.preventDefault(), handleAddSize())
-                          }
-                          className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddSize}
-                          className="bg-blue-500 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-blue-600"
-                        >
-                          Tambah
-                        </button>
-                      </div>
-                      {sizes.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleNextToStocks}
-                          className="w-full mt-4 bg-[#cb5094] text-white py-3 rounded-xl font-semibold hover:bg-[#b54684] flex items-center justify-center gap-2"
-                        >
-                          Lanjut ke Stok <ChevronRight className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {variantStep === "stocks" && (
-                    <div className="bg-green-50 rounded-xl p-6 border border-green-100">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h4 className="font-bold text-gray-800">
-                            Langkah 3: Atur Stok
-                          </h4>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Total:{" "}
-                            <span className="font-bold text-[#cb5094]">
-                              {variants.length}
-                            </span>{" "}
-                            varian
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setVariantStep("sizes")}
-                          className="text-sm text-gray-600 hover:text-gray-800"
-                        >
-                          ← Kembali
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                        {variants.map((variant) => (
-                          <div
-                            key={variant.id}
-                            className="bg-white rounded-xl p-4 border border-gray-200"
-                          >
-                            <div className="flex items-center gap-3 mb-3">
-                              <span className="bg-pink-100 text-[#cb5094] px-3 py-1 rounded-full text-sm font-semibold">
-                                {variant.warna}
-                              </span>
-                              <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm font-semibold">
-                                {variant.ukuran}
-                              </span>
-                            </div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">
-                              Stok
-                            </label>
-                            <input
-                              type="number"
-                              value={variant.stok}
-                              onChange={(e) =>
-                                handleStockChange(variant.id, e.target.value)
-                              }
-                              className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm"
-                              min="0"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-4 bg-white rounded-xl p-4 border border-green-200">
-                        <p className="text-sm text-gray-600">
-                          Total stok:{" "}
-                          <span className="font-bold text-green-600 text-lg">
-                            {variants.reduce((sum, v) => sum + v.stok, 0)} pcs
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-5 rounded-b-3xl">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    className="flex-1 bg-[#cb5094] text-white py-4 rounded-xl font-semibold hover:bg-[#b54684] transition-all"
-                  >
-                    {editingProduct ? "Update Produk" : "Simpan Produk"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelForm}
-                    className="flex-1 bg-white border border-gray-300 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-50 transition-all"
-                  >
-                    Batal
-                  </button>
-                </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelDelete}
+                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 bg-[#cb5094] text-white py-3 rounded-xl font-bold hover:bg-[#b54684] transition-all"
+                >
+                  Ya, Hapus
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Form Modal - FULL LENGKAP */}
+        {showForm && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-y-auto flex flex-col">
+              <div className="bg-gradient-to-r from-[#cb5094] to-[#e570b3] px-6 py-5 flex justify-between items-center rounded-t-3xl sticky top-0 z-10">
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    {editingProduct ? "Edit Produk" : "Tambah Produk Baru"}
+                  </h2>
+                  <p className="text-white/90 text-sm mt-1">
+                    {editingProduct
+                      ? "Perbarui informasi produk"
+                      : "Buat produk baru dengan varian"}
+                  </p>
+                </div>
+                <button
+                  onClick={handleCancelForm}
+                  className="text-white hover:bg-white/20 p-2 rounded-lg transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="p-6 space-y-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column */}
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Kategori <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.categoryId}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            categoryId: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#cb5094]"
+                        required
+                      >
+                        <option value="">Pilih Kategori</option>
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.nama}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Nama Produk <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.nama}
+                        onChange={handleNamaChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#cb5094]"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Slug
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.slug}
+                        onChange={(e) =>
+                          setFormData({ ...formData, slug: e.target.value })
+                        }
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl font-mono text-sm bg-gray-50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Harga Dasar <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.hargaDasar}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            hargaDasar: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#cb5094]"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Berat (g) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.berat}
+                        onChange={(e) =>
+                          setFormData({ ...formData, berat: e.target.value })
+                        }
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Panjang (cm) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.panjang}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              panjang: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Lebar (cm) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.lebar}
+                          onChange={(e) =>
+                            setFormData({ ...formData, lebar: e.target.value })
+                          }
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Tinggi (cm) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.tinggi}
+                          onChange={(e) =>
+                            setFormData({ ...formData, tinggi: e.target.value })
+                          }
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Status
+                      </label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) =>
+                          setFormData({ ...formData, status: e.target.value })
+                        }
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl"
+                      >
+                        {Object.keys(PRODUCT_STATUS).map((status) => (
+                          <option key={status} value={status}>
+                            {getStatusLabel(status)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 bg-pink-50 rounded-xl border border-pink-100">
+                      <input
+                        type="checkbox"
+                        id="aktif"
+                        checked={formData.aktif}
+                        onChange={(e) =>
+                          setFormData({ ...formData, aktif: e.target.checked })
+                        }
+                        className="w-5 h-5 text-[#cb5094] rounded"
+                      />
+                      <label
+                        htmlFor="aktif"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Produk Aktif
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Right Column */}
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Gambar Produk{" "}
+                        {formData.gambarUrls.length > 0 &&
+                          `(${formData.gambarUrls.length})`}
+                      </label>
+                      {formData.gambarUrls.length > 0 && (
+                        <div className="mb-4">
+                          <div className="flex gap-4 overflow-x-auto pb-2">
+                            {formData.gambarUrls.map((url, idx) => (
+                              <div
+                                key={idx}
+                                className="relative group w-32 h-32 flex-shrink-0"
+                              >
+                                <img
+                                  src={url}
+                                  alt={`Gambar ${idx + 1}`}
+                                  className="w-full h-full object-cover rounded-xl border-2 border-gray-200"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImage(url)}
+                                  className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                                {idx === 0 && (
+                                  <div className="absolute bottom-2 left-2 bg-[#cb5094] text-white px-2 py-1 rounded text-xs font-bold">
+                                    Utama
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <ImageUpload
+                        onImageUploaded={handleImageUploaded}
+                        currentImage=""
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        Foto pertama akan jadi foto utama
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Deskripsi
+                      </label>
+                      <textarea
+                        value={formData.deskripsi}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            deskripsi: e.target.value,
+                          })
+                        }
+                        rows="8"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[#cb5094]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Varian Section - hanya untuk tambah produk baru */}
+                {!editingProduct && (
+                  <div className="mt-8 pt-8 border-t border-gray-200">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6">
+                      Varian Produk (Opsional)
+                    </h3>
+
+                    <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-8">
+                      <div
+                        className={`flex flex-col items-center ${
+                          variantStep === "colors"
+                            ? "text-[#cb5094]"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold mb-2 ${
+                            variantStep === "colors"
+                              ? "bg-[#cb5094] text-white"
+                              : "bg-gray-200"
+                          }`}
+                        >
+                          1
+                        </div>
+                        <span className="font-semibold text-sm">Warna</span>
+                      </div>
+                      <ChevronRight className="w-6 h-6 text-gray-400 rotate-90 md:rotate-0" />
+                      <div
+                        className={`flex flex-col items-center ${
+                          variantStep === "sizes"
+                            ? "text-[#cb5094]"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold mb-2 ${
+                            variantStep === "sizes"
+                              ? "bg-[#cb5094] text-white"
+                              : "bg-gray-200"
+                          }`}
+                        >
+                          2
+                        </div>
+                        <span className="font-semibold text-sm">Ukuran</span>
+                      </div>
+                      <ChevronRight className="w-6 h-6 text-gray-400 rotate-90 md:rotate-0" />
+                      <div
+                        className={`flex flex-col items-center ${
+                          variantStep === "stocks"
+                            ? "text-[#cb5094]"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold mb-2 ${
+                            variantStep === "stocks"
+                              ? "bg-[#cb5094] text-white"
+                              : "bg-gray-200"
+                          }`}
+                        >
+                          3
+                        </div>
+                        <span className="font-semibold text-sm">Stok</span>
+                      </div>
+                    </div>
+
+                    {variantStep === "colors" && (
+                      <div className="bg-pink-50 rounded-xl p-6 border border-pink-100">
+                        <h4 className="font-bold text-gray-800 mb-4">
+                          Langkah 1: Tambahkan Warna
+                        </h4>
+                        {colors.length > 0 && (
+                          <div className="flex flex-wrap gap-3 mb-4">
+                            {colors.map((color) => (
+                              <span
+                                key={color}
+                                className="bg-white border border-[#cb5094] text-[#cb5094] px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2"
+                              >
+                                {color}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveColor(color)}
+                                  className="hover:bg-pink-100 rounded-full p-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <input
+                            type="text"
+                            placeholder="Contoh: Hitam, Putih, Merah"
+                            value={newColor}
+                            onChange={(e) => setNewColor(e.target.value)}
+                            onKeyPress={(e) =>
+                              e.key === "Enter" &&
+                              (e.preventDefault(), handleAddColor())
+                            }
+                            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddColor}
+                            className="bg-[#cb5094] text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-[#b54684]"
+                          >
+                            Tambah
+                          </button>
+                        </div>
+                        {colors.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleNextToSizes}
+                            className="w-full mt-4 bg-[#cb5094] text-white py-3 rounded-xl font-semibold hover:bg-[#b54684] flex items-center justify-center gap-2"
+                          >
+                            Lanjut ke Ukuran{" "}
+                            <ChevronRight className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {variantStep === "sizes" && (
+                      <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-bold text-gray-800">
+                            Langkah 2: Tambahkan Ukuran
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => setVariantStep("colors")}
+                            className="text-sm text-gray-600 hover:text-gray-800"
+                          >
+                            ← Kembali
+                          </button>
+                        </div>
+                        {sizes.length > 0 && (
+                          <div className="flex flex-wrap gap-3 mb-4">
+                            {sizes.map((size) => (
+                              <span
+                                key={size}
+                                className="bg-white border border-blue-500 text-blue-600 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2"
+                              >
+                                {size}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSize(size)}
+                                  className="hover:bg-blue-100 rounded-full p-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <input
+                            type="text"
+                            placeholder="Contoh: S, M, L, XL"
+                            value={newSize}
+                            onChange={(e) => setNewSize(e.target.value)}
+                            onKeyPress={(e) =>
+                              e.key === "Enter" &&
+                              (e.preventDefault(), handleAddSize())
+                            }
+                            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddSize}
+                            className="bg-blue-500 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-blue-600"
+                          >
+                            Tambah
+                          </button>
+                        </div>
+                        {sizes.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleNextToStocks}
+                            className="w-full mt-4 bg-[#cb5094] text-white py-3 rounded-xl font-semibold hover:bg-[#b54684] flex items-center justify-center gap-2"
+                          >
+                            Lanjut ke Stok <ChevronRight className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {variantStep === "stocks" && (
+                      <div className="bg-green-50 rounded-xl p-6 border border-green-100">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h4 className="font-bold text-gray-800">
+                              Langkah 3: Atur Stok
+                            </h4>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Total:{" "}
+                              <span className="font-bold text-[#cb5094]">
+                                {variants.length}
+                              </span>{" "}
+                              varian
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setVariantStep("sizes")}
+                            className="text-sm text-gray-600 hover:text-gray-800"
+                          >
+                            ← Kembali
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                          {variants.map((variant) => (
+                            <div
+                              key={variant.id}
+                              className="bg-white rounded-xl p-4 border border-gray-200"
+                            >
+                              <div className="flex items-center gap-3 mb-3">
+                                <span className="bg-pink-100 text-[#cb5094] px-3 py-1 rounded-full text-sm font-semibold">
+                                  {variant.warna}
+                                </span>
+                                <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm font-semibold">
+                                  {variant.ukuran}
+                                </span>
+                              </div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                Stok
+                              </label>
+                              <input
+                                type="number"
+                                value={variant.stok}
+                                onChange={(e) =>
+                                  handleStockChange(variant.id, e.target.value)
+                                }
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm"
+                                min="0"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-4 bg-white rounded-xl p-4 border border-green-200">
+                          <p className="text-sm text-gray-600">
+                            Total stok:{" "}
+                            <span className="font-bold text-green-600 text-lg">
+                              {variants.reduce((sum, v) => sum + v.stok, 0)} pcs
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-5 rounded-b-3xl">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <button
+                      type="submit"
+                      className="flex-1 bg-[#cb5094] text-white py-4 rounded-xl font-semibold hover:bg-[#b54684] transition-all"
+                    >
+                      {editingProduct ? "Update Produk" : "Simpan Produk"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelForm}
+                      className="flex-1 bg-white border border-gray-300 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Toast Notification Container */}
+      <Toaster
+        position="bottom-right"
+        reverseOrder={false}
+        gutter={12}
+        containerStyle={{
+          bottom: 40,
+          right: 20,
+        }}
+        toastOptions={{
+          duration: 4000,
+          style: {
+            borderRadius: "12px",
+            background: "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(10px)",
+            color: "#333",
+            fontSize: "14px",
+            padding: "16px 20px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+            border: "1px solid rgba(0, 0, 0, 0.08)",
+          },
+          success: {
+            style: {
+              borderLeft: "4px solid #10b981",
+            },
+          },
+          error: {
+            style: {
+              borderLeft: "4px solid #ef4444",
+            },
+          },
+          loading: {
+            style: {
+              borderLeft: "4px solid #f59e0b",
+            },
+          },
+        }}
+      />
     </div>
   );
 }

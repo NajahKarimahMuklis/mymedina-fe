@@ -16,7 +16,6 @@ import {
   Copy,
 } from "lucide-react";
 import api from "../utils/api";
-import publicApi from "../utils/publicApi";
 import { formatPrice } from "../utils/formatPrice";
 import toast from "react-hot-toast";
 
