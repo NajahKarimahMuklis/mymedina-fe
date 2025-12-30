@@ -137,56 +137,40 @@ export default function VerifyEmail() {
       console.log("Response status:", response.status);
       const data = response.data;
       console.log("Response data:", data);
-      } catch (parseError) {
-        console.error("Failed to parse JSON:", parseError);
-        throw new Error("Invalid response from server");
-      }
 
-      if (response.ok) {
-        showNotification(
-          "success",
-          "Email berhasil diverifikasi! Mengarahkan ke halaman login..."
-        );
+      showNotification(
+        "success",
+        "Email berhasil diverifikasi! Mengarahkan ke halaman login..."
+      );
 
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 2000);
-      } else {
-        const errorMessage =
-          data.message ||
-          data.error ||
-          "Kode verifikasi salah atau sudah kadaluarsa";
-
-        if (response.status === 404) {
-          showNotification(
-            "error",
-            "User tidak ditemukan. Silakan daftar ulang"
-          );
-        } else if (response.status === 400) {
-          showNotification("error", errorMessage);
-        } else if (response.status === 500) {
-          showNotification(
-            "error",
-            "Terjadi kesalahan server. Silakan coba lagi"
-          );
-        } else {
-          showNotification("error", errorMessage);
-        }
-
-        setCode(["", "", "", "", "", ""]);
-        inputRefs.current[0]?.focus();
-      }
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 2000);
     } catch (err) {
       console.error("Verification error:", err);
 
-      if (err.request && !err.response) {
-        showNotification(
-          "error",
-          "Gagal terhubung ke server. Silakan coba lagi."
-        );
-      } else {
-        showNotification("error", "Terjadi kesalahan: " + err.message);
+      let errorMessage = "Kode verifikasi salah atau sudah kadaluarsa";
+
+      if (err.response) {
+        const status = err.response.status;
+        const data = err.response.data;
+
+        if (status === 404) {
+          errorMessage = "User tidak ditemukan. Silakan daftar ulang";
+        } else if (status === 400) {
+          errorMessage = data.message || data.error || errorMessage;
+        } else if (status === 500) {
+          errorMessage = "Terjadi kesalahan server. Silakan coba lagi";
+        } else if (data.message) {
+          errorMessage = data.message;
+        }
+      } else if (err.request && !err.response) {
+        errorMessage = "Gagal terhubung ke server. Silakan coba lagi.";
       }
+
+      showNotification("error", errorMessage);
+      setCode(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
     } finally {
       setIsVerifying(false);
     }
