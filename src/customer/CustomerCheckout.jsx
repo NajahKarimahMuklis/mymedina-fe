@@ -254,7 +254,7 @@ function CustomerCheckout() {
         couriers: "jne,jnt,sicepat,anteraja",
         items,
       };
-      const { data } = await api.post("/api/shipments/rates", payload);
+      const { data } = await api.post("/shipments/rates", payload);
       let pricingData = [];
       if (data?.pricing) pricingData = data.pricing;
       else if (data?.data?.pricing) pricingData = data.data.pricing;
