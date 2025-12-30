@@ -19,6 +19,11 @@ export default defineConfig({
   preview: {
     port: process.env.PORT || 4173,
     host: "0.0.0.0",
+    allowedHosts: [
+      "mymedina-fe-production.up.railway.app",
+      ".railway.app", // Allow all Railway subdomains
+      "localhost",
+    ],
   },
   build: {
     outDir: "dist",
