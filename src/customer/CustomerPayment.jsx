@@ -161,6 +161,39 @@ function CustomerPayment() {
     }
   };
 
+  const refreshPaymentStatus = async () => {
+    if (!payment || !payment.id) return;
+
+    try {
+      toast.loading("Mengecek status pembayaran dari Midtrans...");
+      
+      // Call backend to check from Midtrans API
+      const response = await api.post(`/payments/${payment.id}/check-status`);
+      const updatedPayment = response.data.payment;
+      
+      setPayment(updatedPayment);
+      toast.dismiss();
+
+      if (updatedPayment.status === "SETTLEMENT") {
+        toast.success("Pembayaran berhasil! Order Anda sudah dibayar.");
+        // Reload order to get updated status
+        await loadOrderAndPayment();
+        setTimeout(() => navigate("/customer/orders"), 2000);
+      } else if (updatedPayment.status === "PENDING") {
+        toast.success("Status: Masih menunggu pembayaran");
+      } else if (["EXPIRE", "CANCEL", "DENY"].includes(updatedPayment.status)) {
+        toast.error(`Pembayaran ${updatedPayment.status.toLowerCase()}`);
+      } else {
+        toast.success("Status pembayaran telah diperbarui");
+      }
+    } catch (error) {
+      toast.dismiss();
+      const errMsg =
+        error.response?.data?.message || "Gagal mengecek status pembayaran";
+      toast.error(errMsg);
+    }
+  };
+
   const updateTimer = () => {
     if (!payment || payment.status !== "PENDING" || !payment.kadaluarsaPada) {
       setTimeRemaining("");
@@ -428,6 +461,14 @@ function CustomerPayment() {
                         <ExternalLink className="w-5 h-5" />
                       </a>
                     )}
+
+                    <button
+                      onClick={refreshPaymentStatus}
+                      className="flex items-center justify-center gap-2 w-full bg-white border-2 border-[#cb5094] text-[#cb5094] py-3 rounded-xl font-semibold hover:bg-pink-50 transition-all"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                      Cek Status Pembayaran
+                    </button>
                   </div>
                 )}
 
