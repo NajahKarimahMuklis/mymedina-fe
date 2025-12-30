@@ -97,46 +97,46 @@ function Login() {
       const data = res.data;
       console.log("Login response:", data);
 
-      if (res.ok) {
-        const token = data.accessToken || data.token;
-        const user = data.user || data.data?.user || data;
+      const token = data.accessToken || data.token;
+      const user = data.user || data.data?.user || data;
 
-        if (!token) {
-          showNotification("error", "Token tidak ditemukan dari server!");
-          return;
-        }
+      if (!token) {
+        showNotification("error", "Token tidak ditemukan dari server!");
+        return;
+      }
 
-        // Ambil role dari response, default CUSTOMER
-        const role = (user.role || "CUSTOMER").toUpperCase();
-        console.log("Detected user role:", role); // ← DEBUG: cek role di console
+      // Ambil role dari response, default CUSTOMER
+      const role = (user.role || "CUSTOMER").toUpperCase();
+      console.log("Detected user role:", role);
 
-        // Simpan ke localStorage
-        localStorage.setItem("accessToken", token);
-        localStorage.setItem("user", JSON.stringify({ ...user, role }));
+      // Simpan ke localStorage
+      localStorage.setItem("accessToken", token);
+      localStorage.setItem("user", JSON.stringify({ ...user, role }));
 
-        showNotification(
-          "success",
-          `Selamat datang kembali, ${user.nama || user.email || "User"}!`
-        );
+      showNotification(
+        "success",
+        `Selamat datang kembali, ${user.nama || user.email || "User"}!`
+      );
 
-        // LANGSUNG NAVIGATE, TANPA setTimeout!
-        if (role === "ADMIN") {
-          navigate("/admin/dashboard", { replace: true });
-        } else if (role === "OWNER") {
-          navigate("/owner/dashboard", { replace: true });
-        } else {
-          navigate("/customer/products", { replace: true });
-        }
+      // LANGSUNG NAVIGATE, TANPA setTimeout!
+      if (role === "ADMIN") {
+        navigate("/admin/dashboard", { replace: true });
+      } else if (role === "OWNER") {
+        navigate("/owner/dashboard", { replace: true });
       } else {
-        const errorMsg = data.message || "Email atau password salah";
-        showNotification("error", errorMsg);
+        navigate("/customer/products", { replace: true });
       }
     } catch (err) {
       console.error("Login error:", err);
-      showNotification(
-        "error",
-        "Gagal terhubung ke server. Pastikan backend berjalan di port 5000!"
-      );
+
+      let errorMsg = "Email atau password salah";
+      if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err.request && !err.response) {
+        errorMsg = "Gagal terhubung ke server. Silakan coba lagi.";
+      }
+
+      showNotification("error", errorMsg);
     } finally {
       setIsLoading(false);
     }

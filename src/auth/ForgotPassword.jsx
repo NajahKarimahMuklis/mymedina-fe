@@ -84,23 +84,19 @@ function ForgotPassword() {
 
       const data = res.data;
 
-      if (res.ok) {
-        showNotification(
-          "success",
-          "Link reset password telah dikirim ke email Anda. Silakan cek inbox atau spam folder 📧"
-        );
-        setEmail("");
-      } else {
-        showNotification(
-          "error",
-          data.message || "Terjadi kesalahan. Silakan coba lagi"
-        );
-      }
-    } catch (err) {
       showNotification(
-        "error",
-        "Gagal terhubung ke server. Pastikan backend berjalan"
+        "success",
+        "Link reset password telah dikirim ke email Anda. Silakan cek inbox atau spam folder 📧"
       );
+      setEmail("");
+    } catch (err) {
+      let errorMsg = "Terjadi kesalahan. Silakan coba lagi";
+      if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err.request && !err.response) {
+        errorMsg = "Gagal terhubung ke server. Silakan coba lagi.";
+      }
+      showNotification("error", errorMsg);
     } finally {
       setIsLoading(false);
     }
