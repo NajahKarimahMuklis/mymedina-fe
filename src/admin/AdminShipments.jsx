@@ -17,8 +17,8 @@ import {
   Globe,
   Plus,
 } from "lucide-react";
-import api from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
+import api from "../components/utils/api";
+import { formatPrice } from "../components/utils/formatPrice";
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);
   useEffect(() => {

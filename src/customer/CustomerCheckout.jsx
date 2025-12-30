@@ -16,8 +16,8 @@ import {
   Search,
   AlertCircle,
 } from "lucide-react";
-import api from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
+import api from "../components/utils/api";
+import { formatPrice } from "../components/utils/formatPrice";
 import toast from "react-hot-toast";
 
 const STORE_POSTAL_CODE = "28124";
@@ -254,14 +254,17 @@ function CustomerCheckout() {
         couriers: "jne,jnt,sicepat,anteraja",
         items,
       };
-      const response = await fetch("http://localhost:5000/api/shipments/rates", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        "http://localhost:5000/api/shipments/rates",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
       const responseText = await response.text();
       let data;
       try {

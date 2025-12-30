@@ -23,8 +23,8 @@ import {
   Package,
   RotateCcw,
 } from "lucide-react";
-import api from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
+import api from "../components/utils/api";
+import { formatPrice } from "../components/utils/formatPrice";
 import toast from "react-hot-toast";
 
 function AdminTransactions() {

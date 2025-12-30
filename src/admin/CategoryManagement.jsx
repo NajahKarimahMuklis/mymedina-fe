@@ -12,7 +12,7 @@ import {
   Sparkles,
   AlertCircle,
 } from "lucide-react";
-import { categoryAPI } from "../utils/api";
+import { categoryAPI } from "../components/utils/api";
 import toast from "react-hot-toast";
 
 function CategoryManagement() {

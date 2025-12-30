@@ -10,9 +10,9 @@ import {
   Check,
   Zap,
 } from "lucide-react";
-import { variantAPI } from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
-import toast from "react-hot-toast"; 
+import { variantAPI } from "../components/utils/api";
+import { formatPrice } from "../components/utils/formatPrice";
+import toast from "react-hot-toast";
 
 function CustomerProductDetail({ product, onClose, setCartCount }) {
   const navigate = useNavigate();

@@ -13,9 +13,9 @@ import {
   X,
   Truck,
 } from "lucide-react";
-import { productAPI, categoryAPI } from "../utils/api";
-import api from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
+import { productAPI, categoryAPI } from "../components/utils/api";
+import api from "../components/utils/api";
+import { formatPrice } from "../components/utils/formatPrice";
 
 export default function AdminDashboard() {
   const [adminData, setAdminData] = useState({
@@ -135,7 +135,6 @@ export default function AdminDashboard() {
 
     init();
   }, [navigate]);
-
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);

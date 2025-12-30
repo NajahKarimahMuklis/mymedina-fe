@@ -8,7 +8,7 @@ import {
   ArrowRight,
   ShoppingBag,
 } from "lucide-react";
-import { formatPrice } from "../utils/formatPrice";
+import { formatPrice } from "../components/utils/formatPrice";
 import toast from "react-hot-toast"; // tetap diimport, tapi tanpa override style
 
 function CustomerCart() {

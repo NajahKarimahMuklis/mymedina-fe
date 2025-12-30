@@ -26,8 +26,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { productAPI, variantAPI } from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
+import { productAPI, variantAPI } from "../components/utils/api";
+import { formatPrice } from "../components/utils/formatPrice";
 
 function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

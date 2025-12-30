@@ -1,5 +1,5 @@
 import { Heart, Star, ShoppingCart } from 'lucide-react';
-import { formatPrice, getStatusLabel, getStatusColor } from '../utils/formatPrice';
+import { formatPrice, getStatusLabel, getStatusColor } from './utils/formatPrice';
 
 function ProductCard({ product, onAddToCart, onToggleWishlist, isInWishlist = false }) {
   

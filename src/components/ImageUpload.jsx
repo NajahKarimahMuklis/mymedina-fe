@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Upload, Image as ImageIcon, Loader2, CheckCircle } from "lucide-react";
-import { uploadAPI } from "../utils/api";
+import { uploadAPI } from "./utils/api";
 
 function ImageUpload({ onImageUploaded, currentImage = null, maxSize = 5 }) {
   const [preview, setPreview] = useState(currentImage);

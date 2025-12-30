@@ -12,13 +12,13 @@ import {
   Package,
   AlertCircle,
 } from "lucide-react";
-import { productAPI, categoryAPI, variantAPI } from "../utils/api";
+import { productAPI, categoryAPI, variantAPI } from "../components/utils/api";
 import {
   formatPrice,
   getStatusLabel,
   getStatusColor,
   PRODUCT_STATUS,
-} from "../utils/formatPrice";
+} from "../components/utils/formatPrice";
 import ImageUpload from "../components/ImageUpload";
 import toast from "react-hot-toast";
 

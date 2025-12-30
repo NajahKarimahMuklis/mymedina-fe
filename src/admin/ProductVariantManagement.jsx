@@ -11,8 +11,8 @@ import {
   ChevronRight,
   AlertCircle,
 } from "lucide-react";
-import { productAPI, variantAPI } from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
+import { productAPI, variantAPI } from "../components/utils/api";
+import { formatPrice } from "../components/utils/formatPrice";
 import toast from "react-hot-toast";
 
 function ProductVariantManagement() {

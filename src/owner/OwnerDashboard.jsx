@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
   DollarSign,
- ShoppingCart,
- 
+  ShoppingCart,
   BarChart2,
   TrendingUp,
   Sparkles,
@@ -14,7 +13,6 @@ import {
   CheckCircle,
   AlertCircle,
   LogOut,
-
   Clock,
 } from "lucide-react";
 import {
@@ -32,8 +30,8 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import api from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
+import api from "../components/utils/api";
+import { formatPrice } from "../components/utils/formatPrice";
 
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);

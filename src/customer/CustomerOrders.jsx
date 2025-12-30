@@ -14,8 +14,8 @@ import {
   MapPin,
   Trash2,
 } from "lucide-react";
-import api from "../utils/api";
-import { formatPrice } from "../utils/formatPrice";
+import api from "../components/utils/api";
+import { formatPrice } from "../components/utils/formatPrice";
 import toast from "react-hot-toast";
 
 function CustomerOrders() {
@@ -301,7 +301,6 @@ function CustomerOrders() {
       navigate(`/customer/orders/${order.orderId}/tracking`);
     }
   };
-
 
   const handleDeleteOrder = async (order) => {
     // Validasi: hanya bisa batalkan jika status PENDING_PAYMENT
@@ -831,4 +830,3 @@ function CustomerOrders() {
 }
 
 export default CustomerOrders;
-
