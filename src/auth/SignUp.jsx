@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import api from "../components/utils/api";
 
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);
@@ -124,79 +125,66 @@ function SignUp() {
         nomorTelepon: phone.replace(/\D/g, ""),
       });
 
-      const res = await fetch("http://localhost:5000/api/auth/daftar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nama: name.trim(),
-          email: email.toLowerCase().trim(),
-          nomorTelepon: phone.replace(/\D/g, ""),
-          password,
-        }),
+      const res = await api.post("/auth/daftar", {
+        nama: name.trim(),
+        email: email.toLowerCase().trim(),
+        nomorTelepon: phone.replace(/\D/g, ""),
+        password,
       });
 
       console.log("Response status:", res.status);
+      const data = res.data;
+      console.log("Response data:", data);
 
-      let data;
-      try {
-        data = await res.json();
-        console.log("Response data:", data);
-      } catch (parseError) {
-        console.error("Failed to parse response:", parseError);
-        throw new Error("Invalid response from server");
-      }
+      showNotification(
+        "success",
+        "Pendaftaran berhasil! 🎉 Silakan cek email untuk kode verifikasi"
+      );
 
-      if (res.ok) {
-        showNotification(
-          "success",
-          "Pendaftaran berhasil! 🎉 Silakan cek email untuk kode verifikasi"
-        );
-
-        if (data.user && data.user.id) {
-          setTimeout(() => {
-            const verifyUrl = `/verify?userId=${
-              data.user.id
-            }&email=${encodeURIComponent(email.toLowerCase().trim())}`;
-            console.log("Redirecting to:", verifyUrl);
-            window.location.href = verifyUrl;
-          }, 2000);
-        } else {
-          console.error("User ID not found in response:", data);
-          showNotification(
-            "error",
-            "Pendaftaran berhasil tapi tidak dapat mengarahkan ke verifikasi. Silakan cek email Anda"
-          );
-        }
+      if (data.user && data.user.id) {
+        setTimeout(() => {
+          const verifyUrl = `/verify?userId=${
+            data.user.id
+          }&email=${encodeURIComponent(email.toLowerCase().trim())}`;
+          console.log("Redirecting to:", verifyUrl);
+          window.location.href = verifyUrl;
+        }, 2000);
       } else {
-        let errorMessage = "Terjadi kesalahan saat mendaftar";
+        console.error("User ID not found in response:", data);
+        showNotification(
+          "error",
+          "Pendaftaran berhasil tapi tidak dapat mengarahkan ke verifikasi. Silakan cek email Anda"
+        );
+      }
+    } catch (err) {
+      console.error("Signup error:", err);
 
-        if (res.status === 409) {
+      let errorMessage = "Terjadi kesalahan saat mendaftar";
+
+      if (err.response) {
+        // Server responded with error
+        const status = err.response.status;
+        const data = err.response.data;
+
+        if (status === 409) {
           errorMessage =
             "Email sudah terdaftar. Silakan login atau gunakan email lain";
-        } else if (res.status === 400) {
+        } else if (status === 400) {
           errorMessage =
             data.message || "Data tidak valid. Periksa kembali form Anda";
-        } else if (res.status === 500) {
+        } else if (status === 500) {
           errorMessage = "Terjadi kesalahan server. Silakan coba lagi";
         } else if (data.message) {
           errorMessage = Array.isArray(data.message)
             ? data.message.join(", ")
             : data.message;
         }
-
-        showNotification("error", errorMessage);
+      } else if (err.request) {
+        // No response from server
+        errorMessage = "Gagal terhubung ke server. Silakan coba lagi";
       }
-    } catch (err) {
-      console.error("Signup error:", err);
 
-      if (err.message === "Failed to fetch") {
-        showNotification(
-          "error",
-          "Gagal terhubung ke server. Pastikan backend berjalan di http://localhost:5000"
-        );
-      } else {
-        showNotification("error", "Terjadi kesalahan: " + err.message);
-      }
+      showNotification("error", errorMessage);
     } finally {
       setIsLoading(false);
     }
