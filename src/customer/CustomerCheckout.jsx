@@ -377,9 +377,6 @@ function CustomerCheckout() {
         provinsi: shippingForm.provinsi,
         kodePos: String(shippingForm.kodePos).padStart(5, "0"),
       };
-      if (shippingForm.emailPenerima) {
-        alamatPengiriman.emailPenerima = shippingForm.emailPenerima;
-      }
       const orderData = {
         items,
         alamatPengiriman,
