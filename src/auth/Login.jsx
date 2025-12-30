@@ -10,7 +10,8 @@ import {
   XCircle,
   User,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom"; // ← TAMBAHKAN useNavigate
+import { Link, useNavigate } from "react-router-dom";
+import api from "../components/utils/api";
 
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);
@@ -88,16 +89,12 @@ function Login() {
     try {
       console.log("Login attempt:", email);
 
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.toLowerCase().trim(),
-          password,
-        }),
+      const res = await api.post("/auth/login", {
+        email: email.toLowerCase().trim(),
+        password,
       });
 
-      const data = await res.json();
+      const data = res.data;
       console.log("Login response:", data);
 
       if (res.ok) {

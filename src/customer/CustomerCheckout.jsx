@@ -254,30 +254,7 @@ function CustomerCheckout() {
         couriers: "jne,jnt,sicepat,anteraja",
         items,
       };
-      const response = await fetch(
-        "http://localhost:5000/api/shipments/rates",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-      const responseText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch {
-        console.error("Invalid JSON response:", responseText);
-        throw new Error("Invalid JSON response from server");
-      }
-      if (!response.ok) {
-        throw new Error(
-          data.message || data.error || "Gagal menghitung ongkir"
-        );
-      }
+      const { data } = await api.post("/api/shipments/rates", payload);
       let pricingData = [];
       if (data?.pricing) pricingData = data.pricing;
       else if (data?.data?.pricing) pricingData = data.data.pricing;

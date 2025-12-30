@@ -10,9 +10,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const BACKEND_URL =
-  import.meta.env?.VITE_BACKEND_URL || "http://localhost:5000/api";
+import api from "../components/utils/api";
 
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);

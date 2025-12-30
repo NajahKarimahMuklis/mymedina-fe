@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Mail, User, X, CheckCircle, XCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import api from "../components/utils/api";
 
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);
@@ -77,13 +78,11 @@ function ForgotPassword() {
 
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/lupa-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase().trim() }),
+      const res = await api.post("/auth/lupa-password", {
+        email: email.toLowerCase().trim(),
       });
 
-      const data = await res.json();
+      const data = res.data;
 
       if (res.ok) {
         showNotification(

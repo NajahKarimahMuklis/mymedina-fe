@@ -9,6 +9,7 @@ import {
   Mail,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import api from "../components/utils/api";
 
 function Notification({ type, message, onClose }) {
   const [isExiting, setIsExiting] = useState(false);
@@ -129,20 +130,13 @@ export default function VerifyEmail() {
     try {
       console.log("Verifying with:", { userId, verificationCode });
 
-      const response = await fetch(
-        `http://localhost:5000/api/auth/verifikasi-email/${userId}/${verificationCode}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        }
+      const response = await api.get(
+        `/auth/verifikasi-email/${userId}/${verificationCode}`
       );
 
       console.log("Response status:", response.status);
-
-      let data;
-      try {
-        data = await response.json();
-        console.log("Response data:", data);
+      const data = response.data;
+      console.log("Response data:", data);
       } catch (parseError) {
         console.error("Failed to parse JSON:", parseError);
         throw new Error("Invalid response from server");
@@ -185,10 +179,10 @@ export default function VerifyEmail() {
     } catch (err) {
       console.error("Verification error:", err);
 
-      if (err.message === "Failed to fetch") {
+      if (err.request && !err.response) {
         showNotification(
           "error",
-          "Gagal terhubung ke server. Pastikan backend berjalan di http://localhost:5000"
+          "Gagal terhubung ke server. Silakan coba lagi."
         );
       } else {
         showNotification("error", "Terjadi kesalahan: " + err.message);
